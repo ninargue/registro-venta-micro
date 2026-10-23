@@ -1,8 +1,6 @@
+# registro-venta-micro — Documentación técnica (Entrega 1)
 
-# Documentación técnica
-
-Esta carpeta contiene la documentación técnica de **registro-venta-micro**.
-
+PWA multidispositivo y multitenant para el registro de ventas de micronegocios. Este documento sigue la plantilla oficial del proyecto final y describe el **MVP**.
 
 ## Índice
 
