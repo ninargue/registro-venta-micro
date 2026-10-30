@@ -50,18 +50,12 @@ jobs:
           key: ${{ runner.os }}-pip-prod-${{ hashFiles('backend/pyproject.toml') }}
           restore-keys: ${{ runner.os }}-pip-prod-
 
-      # Lee las dependencias de producción del pyproject.toml y las instala
-      # directamente, sin necesitar que app/ exista (no editable install).
-      - name: Instalar pip-audit y dependencias de producción
-        run: |
-          pip install pip-audit
-          python3 - <<'PYEOF'
-          import tomllib, subprocess
-          with open("pyproject.toml", "rb") as f:
-              d = tomllib.load(f)
-          deps = d["project"]["dependencies"]
-          subprocess.run(["pip", "install"] + deps, check=True)
-          PYEOF
+      # Instalar solo deps de producción (sin [dev]) y pip-audit
+      - name: Instalar dependencias de producción
+        run: pip install -e "."
+
+      - name: Instalar pip-audit
+        run: pip install pip-audit
 
       # Falla ante cualquier vulnerabilidad en dependencias de producción.
       # Para ignorar un CVE específico ya evaluado: pip-audit --ignore-vuln GHSA-xxxx
@@ -87,9 +81,7 @@ jobs:
           restore-keys: ${{ runner.os }}-pip-dev-
 
       - name: Instalar dependencias de desarrollo
-        run: |
-          [ -d "app" ] || { echo "Sin app/ todavía — saltando instalación."; exit 0; }
-          pip install -e ".[dev]"
+        run: pip install -e ".[dev]"
 
       - name: ruff check (errores de lint)
         run: |
@@ -121,9 +113,7 @@ jobs:
           restore-keys: ${{ runner.os }}-pip-dev-
 
       - name: Instalar dependencias de desarrollo
-        run: |
-          [ -d "app" ] || { echo "Sin app/ todavía — saltando instalación."; exit 0; }
-          pip install -e ".[dev]"
+        run: pip install -e ".[dev]"
 
       - name: mypy
         run: |
@@ -150,9 +140,7 @@ jobs:
           restore-keys: ${{ runner.os }}-pip-dev-
 
       - name: Instalar dependencias de desarrollo
-        run: |
-          [ -d "app" ] || { echo "Sin app/ todavía — saltando instalación."; exit 0; }
-          pip install -e ".[dev]"
+        run: pip install -e ".[dev]"
 
       - name: Tests unitarios con cobertura
         run: |
@@ -207,9 +195,7 @@ jobs:
           restore-keys: ${{ runner.os }}-pip-dev-
 
       - name: Instalar dependencias de desarrollo
-        run: |
-          [ -d "app" ] || { echo "Sin app/ todavía — saltando instalación."; exit 0; }
-          pip install -e ".[dev]"
+        run: pip install -e ".[dev]"
 
       - name: Aplicar migraciones al esquema de test
         run: |
@@ -271,9 +257,7 @@ jobs:
           restore-keys: ${{ runner.os }}-pip-dev-
 
       - name: Instalar dependencias de desarrollo
-        run: |
-          [ -d "app" ] || { echo "Sin app/ todavía — saltando instalación."; exit 0; }
-          pip install -e ".[dev]"
+        run: pip install -e ".[dev]"
 
       # Ninguna migración ya mergeada a la rama base puede ser editada ni eliminada.
       - name: Verificar que migraciones previas no fueron alteradas
