@@ -1,0 +1,18 @@
+{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python \"$(git rev-parse --show-toplevel)/.claude/hooks/format_on_edit.py\"",
+            "shell": "bash",
+            "timeout": 15,
+            "statusMessage": "Formateando..."
+          }
+        ]
+      }
+    ]
+  }
+}
