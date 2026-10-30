@@ -1,0 +1,286 @@
+name: CI Backend
+
+on:
+  push:
+    paths:
+      - "backend/**"
+      - ".github/workflows/ci-backend.yml"
+  pull_request:
+    branches:
+      - develop
+      - master
+      - "release/**"
+    paths:
+      - "backend/**"
+      - ".github/workflows/ci-backend.yml"
+
+concurrency:
+  group: ci-backend-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    working-directory: backend
+
+# ─── Jobs ──────────────────────────────────────────────────────────────────────
+#
+#  audit ──────────────────────────────────────────────────
+#  lint  ──────────────────────────────────────────────────
+#  typecheck ─────── needs: lint
+#  test-unit ─────── needs: typecheck
+#  test-integration ─ needs: typecheck   (+ servicio PostgreSQL)
+#  migrations-integrity ─ needs: typecheck  (solo en PRs, + PostgreSQL)
+
+jobs:
+  # ── 1. Auditoría de dependencias de producción ────────────────────────────
+  audit:
+    name: "Auditoría (pip-audit · producción)"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Cache pip
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-prod-${{ hashFiles('backend/pyproject.toml') }}
+          restore-keys: ${{ runner.os }}-pip-prod-
+
+      # Instalar solo deps de producción (sin [dev]) y pip-audit
+      - name: Instalar dependencias de producción
+        run: pip install -e "."
+
+      - name: Instalar pip-audit
+        run: pip install pip-audit
+
+      # Falla ante cualquier vulnerabilidad en dependencias de producción.
+      # Para ignorar un CVE específico ya evaluado: pip-audit --ignore-vuln GHSA-xxxx
+      - name: Auditar con pip-audit
+        run: pip-audit
+
+  # ── 2. Lint y formato ─────────────────────────────────────────────────────
+  lint:
+    name: "Lint · formato (ruff)"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Cache pip
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-dev-${{ hashFiles('backend/pyproject.toml') }}
+          restore-keys: ${{ runner.os }}-pip-dev-
+
+      - name: Instalar dependencias de desarrollo
+        run: pip install -e ".[dev]"
+
+      - name: ruff check (errores de lint)
+        run: |
+          [ -d "app" ] || { echo "Sin código todavía — saltando lint."; exit 0; }
+          ruff check .
+
+      - name: ruff format --check (estilo)
+        run: |
+          [ -d "app" ] || exit 0
+          ruff format --check .
+
+  # ── 3. Tipado estático (mypy) ─────────────────────────────────────────────
+  typecheck:
+    name: "Tipado estático (mypy strict)"
+    needs: lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Cache pip
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-dev-${{ hashFiles('backend/pyproject.toml') }}
+          restore-keys: ${{ runner.os }}-pip-dev-
+
+      - name: Instalar dependencias de desarrollo
+        run: pip install -e ".[dev]"
+
+      - name: mypy
+        run: |
+          [ -d "app" ] || { echo "Sin código todavía — saltando mypy."; exit 0; }
+          mypy app
+
+  # ── 4. Tests unitarios ────────────────────────────────────────────────────
+  test-unit:
+    name: "Tests unitarios (pytest)"
+    needs: typecheck
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Cache pip
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-dev-${{ hashFiles('backend/pyproject.toml') }}
+          restore-keys: ${{ runner.os }}-pip-dev-
+
+      - name: Instalar dependencias de desarrollo
+        run: pip install -e ".[dev]"
+
+      - name: Tests unitarios con cobertura
+        run: |
+          [ -d "tests/unit" ] || { echo "Sin tests unitarios todavía — saltando."; exit 0; }
+          pytest tests/unit --cov-report=xml:coverage-unit.xml
+
+      - name: Subir reporte de cobertura
+        if: always() && hashFiles('backend/coverage-unit.xml') != ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-backend-unit
+          path: backend/coverage-unit.xml
+          retention-days: 7
+
+  # ── 5. Tests de integración (PostgreSQL real) ─────────────────────────────
+  test-integration:
+    name: "Tests de integración (pytest + PostgreSQL 17)"
+    needs: typecheck
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: testuser
+          POSTGRES_PASSWORD: testpass
+          POSTGRES_DB: registro_venta_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U testuser -d registro_venta_test"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      DATABASE_URL: postgresql+asyncpg://testuser:testpass@localhost:5432/registro_venta_test
+      # Secretos reales vienen de ${{ secrets.* }} en producción/staging.
+      # Aquí usamos valores de CI que no tienen acceso a datos reales.
+      SECRET_KEY: ci-only-secret-key-not-for-production
+      ENVIRONMENT: test
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Cache pip
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-dev-${{ hashFiles('backend/pyproject.toml') }}
+          restore-keys: ${{ runner.os }}-pip-dev-
+
+      - name: Instalar dependencias de desarrollo
+        run: pip install -e ".[dev]"
+
+      - name: Aplicar migraciones al esquema de test
+        run: |
+          [ -d "alembic" ] || { echo "Sin migraciones todavía — saltando."; exit 0; }
+          alembic upgrade head
+
+      - name: Tests de integración con cobertura
+        run: |
+          [ -d "tests/integration" ] || { echo "Sin tests de integración todavía — saltando."; exit 0; }
+          pytest tests/integration --cov-report=xml:coverage-integration.xml
+
+      - name: Subir reporte de cobertura
+        if: always() && hashFiles('backend/coverage-integration.xml') != ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-backend-integration
+          path: backend/coverage-integration.xml
+          retention-days: 7
+
+  # ── 6. Integridad del esquema y migraciones (solo en PRs) ─────────────────
+  migrations-integrity:
+    name: "Integridad de migraciones (Alembic)"
+    needs: typecheck
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: testuser
+          POSTGRES_PASSWORD: testpass
+          POSTGRES_DB: registro_venta_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U testuser -d registro_venta_test"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      DATABASE_URL: postgresql+asyncpg://testuser:testpass@localhost:5432/registro_venta_test
+      SECRET_KEY: ci-only-secret-key-not-for-production
+      ENVIRONMENT: test
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # fetch-depth: 0 necesario para comparar con la rama base del PR
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Cache pip
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-dev-${{ hashFiles('backend/pyproject.toml') }}
+          restore-keys: ${{ runner.os }}-pip-dev-
+
+      - name: Instalar dependencias de desarrollo
+        run: pip install -e ".[dev]"
+
+      # Ninguna migración ya mergeada a la rama base puede ser editada ni eliminada.
+      - name: Verificar que migraciones previas no fueron alteradas
+        run: |
+          [ -d "alembic/versions" ] || { echo "Sin migraciones todavía — saltando."; exit 0; }
+          git fetch origin ${{ github.base_ref }}
+          CHANGED=$(git diff --name-status origin/${{ github.base_ref }}...HEAD \
+                    -- alembic/versions/ | grep -E '^[MD]' || true)
+          if [ -n "$CHANGED" ]; then
+            echo "❌ Las siguientes migraciones ya en '${{ github.base_ref }}' fueron modificadas (M) o eliminadas (D):"
+            echo "$CHANGED"
+            echo "Las migraciones mergeadas son inmutables. Crea una nueva migración para revertir."
+            exit 1
+          fi
+          echo "✅ Ninguna migración preexistente fue alterada."
+
+      - name: Aplicar todas las migraciones
+        run: |
+          [ -d "alembic" ] || { echo "Sin migraciones todavía — saltando."; exit 0; }
+          alembic upgrade head
+
+      # Verifica que el esquema de la BD está al día con el HEAD de migraciones.
+      - name: Verificar consistencia del esquema (alembic check)
+        run: |
+          [ -d "alembic" ] || exit 0
+          alembic check
