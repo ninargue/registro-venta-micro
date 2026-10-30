@@ -1,0 +1,6 @@
+{
+  "backend/**/*.py": ["ruff check --fix", "ruff format"],
+  "frontend/**/*.{ts,tsx,js,jsx,css,json}": [
+    "npx --prefix frontend prettier --write"
+  ]
+}
