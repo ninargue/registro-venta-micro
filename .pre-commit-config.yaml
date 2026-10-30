@@ -1,0 +1,26 @@
+repos:
+  - repo: local
+    hooks:
+      # ── Backend (Python) ────────────────────────────────────────────────────
+      - id: ruff-check
+        name: "ruff check --fix (backend)"
+        language: system
+        entry: ruff check --fix
+        types: [python]
+        files: ^backend/
+
+      - id: ruff-format
+        name: "ruff format (backend)"
+        language: system
+        entry: ruff format
+        types: [python]
+        files: ^backend/
+
+      # ── Frontend (TS / JS / CSS / JSON) ─────────────────────────────────────
+      - id: prettier
+        name: "prettier --write (frontend)"
+        language: system
+        entry: npx --prefix frontend prettier --write
+        types_or: [ts, tsx, javascript, jsx, css, json]
+        files: ^frontend/
+        pass_filenames: true
