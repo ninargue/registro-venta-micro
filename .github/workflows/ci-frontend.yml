@@ -1,0 +1,190 @@
+name: CI Frontend
+
+on:
+  push:
+    paths:
+      - "frontend/**"
+      - ".github/workflows/ci-frontend.yml"
+  pull_request:
+    branches:
+      - develop
+      - master
+      - "release/**"
+    paths:
+      - "frontend/**"
+      - ".github/workflows/ci-frontend.yml"
+
+concurrency:
+  group: ci-frontend-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    working-directory: frontend
+
+# ─── Jobs ──────────────────────────────────────────────────────────────────────
+#
+#  audit ───────────────────────────────────────────────
+#  lint  ───────────────────────────────────────────────
+#  typecheck-build ─── needs: lint  (cachea dist/)
+#  test-unit ─────────── needs: typecheck-build
+#  test-e2e ──────────── needs: typecheck-build  (solo en PRs, restaura dist/)
+
+jobs:
+  # ── 1. Auditoría de dependencias de producción ────────────────────────────
+  audit:
+    name: "Auditoría (npm audit · producción)"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Instalar dependencias
+        run: npm ci
+
+      # --omit=dev excluye devDependencies y sus transitivas del análisis.
+      # --audit-level=moderate falla ante vulnerabilidades moderadas o superiores.
+      - name: Auditar dependencias de producción
+        run: npm audit --omit=dev --audit-level=moderate
+
+  # ── 2. Lint y formato ─────────────────────────────────────────────────────
+  lint:
+    name: "Lint (ESLint) · formato (Prettier)"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Instalar dependencias
+        run: npm ci
+
+      - name: ESLint
+        run: |
+          [ -d "src" ] || { echo "Sin código todavía — saltando ESLint."; exit 0; }
+          npm run lint
+
+      - name: Prettier check
+        run: |
+          [ -d "src" ] || { echo "Sin código todavía — saltando Prettier."; exit 0; }
+          npm run format:check
+
+  # ── 3. Tipado estático + Build ────────────────────────────────────────────
+  typecheck-build:
+    name: "Tipado estático (tsc) + Build (Vite)"
+    needs: lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Instalar dependencias
+        run: npm ci
+
+      - name: Verificar tipos (tsc --noEmit)
+        run: |
+          [ -d "src" ] || { echo "Sin código todavía — saltando tsc."; exit 0; }
+          npm run typecheck
+
+      - name: Build de producción (vite build)
+        run: |
+          [ -d "src" ] || { echo "Sin código todavía — saltando build."; exit 0; }
+          npm run build
+
+      # Cachea dist/ para reutilizarlo en test-e2e sin recompilar.
+      - name: Cachear artefactos de build
+        if: hashFiles('frontend/dist/**') != ''
+        uses: actions/cache@v4
+        with:
+          path: frontend/dist
+          key: frontend-dist-${{ github.sha }}
+
+  # ── 4. Tests unitarios ────────────────────────────────────────────────────
+  test-unit:
+    name: "Tests unitarios (Vitest)"
+    needs: typecheck-build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Instalar dependencias
+        run: npm ci
+
+      - name: Tests con cobertura
+        run: |
+          [ -d "src" ] || { echo "Sin código todavía — saltando."; exit 0; }
+          npm run test:coverage
+
+      - name: Subir reporte de cobertura
+        if: always() && hashFiles('frontend/coverage/**') != ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-frontend
+          path: frontend/coverage/
+          retention-days: 7
+
+  # ── 5. Tests E2E (Playwright) — solo en PRs ──────────────────────────────
+  test-e2e:
+    name: "Tests E2E (Playwright · Chromium)"
+    needs: typecheck-build
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Instalar dependencias
+        run: npm ci
+
+      # Restaura dist/ cacheado por typecheck-build para no compilar dos veces.
+      - name: Restaurar artefactos de build
+        uses: actions/cache/restore@v4
+        id: cache-dist
+        with:
+          path: frontend/dist
+          key: frontend-dist-${{ github.sha }}
+
+      - name: Instalar Chromium para Playwright
+        run: npx playwright install --with-deps chromium
+
+      # Levanta vite preview (sirve dist/) y ejecuta los tests.
+      # wait-on espera que el servidor responda antes de lanzar Playwright.
+      - name: Tests E2E
+        run: |
+          [ -d "src" ] || { echo "Sin código todavía — saltando E2E."; exit 0; }
+          npm run preview &
+          npx wait-on http://localhost:4173 --timeout 30000
+          npx playwright test
+
+      - name: Subir reporte de Playwright
+        if: always() && hashFiles('frontend/playwright-report/**') != ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: frontend/playwright-report/
+          retention-days: 7
