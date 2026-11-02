@@ -1,2 +1,6 @@
 # Salida de cobertura de Vitest
 coverage/
+
+# Salida de Playwright
+playwright-report/
+test-results/

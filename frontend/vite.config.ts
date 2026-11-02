@@ -18,4 +18,9 @@ export default defineConfig({
       "/api": "http://localhost:8000",
     },
   },
+  preview: {
+    // Puerto propio y fijo para `vite preview` (lo usa el webServer de Playwright).
+    port: 4174,
+    strictPort: true,
+  },
 });
