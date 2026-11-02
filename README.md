@@ -116,7 +116,7 @@ flowchart LR
 
 > Entrega 1 (0 % código): estos son los pasos **previstos** para el entorno local (Supabase CLI en Docker). Se validarán y ajustarán al crear los scaffolds en la Entrega 2.
 
-**Requisitos:** Git, Docker, [Supabase CLI](https://supabase.com/docs/guides/local-development), Python 3.12, Node.js 20 LTS.
+**Requisitos:** Git, Docker, [Supabase CLI](https://supabase.com/docs/guides/local-development), Python 3.14, Node.js 26. Se recomienda [fnm](https://github.com/Schniz/fnm) para gestionar la versión de Node (lee `.nvmrc` automáticamente).
 
 ```bash
 # 1. Clonar
@@ -134,11 +134,10 @@ cp backend/.env.example backend/.env
 
 # 4. Backend: dependencias, migraciones y semillas
 cd backend
-python -m venv .venv && source .venv/bin/activate   # Windows: .venv\Scripts\activate
-pip install -e ".[dev]"
-alembic upgrade head
-python -m scripts.seed          # negocios, usuarios, productos y ventas ficticios
-uvicorn app.main:app --reload   # http://localhost:8000/docs
+uv sync                         # instala dependencias (prod + dev) en .venv
+uv run alembic upgrade head
+uv run python -m scripts.seed   # negocios, usuarios, productos y ventas ficticios
+uv run uvicorn app.main:app --reload   # http://localhost:8000/docs
 
 # 5. Frontend (otra terminal)
 cd frontend
@@ -146,7 +145,7 @@ npm ci
 npm run dev                     # http://localhost:5173
 
 # 6. Tests
-cd backend && pytest            # unitarios, integración y aislamiento entre tenants
+cd backend && uv run pytest     # unitarios, integración y aislamiento entre tenants
 cd frontend && npm test && npx playwright test
 ```
 
@@ -207,7 +206,7 @@ flowchart TB
 
 | Componente | Tecnología | Responsabilidad |
 |------------|------------|-----------------|
-| **PWA** | React 18, Vite, TypeScript, TanStack Query, React Router, `vite-plugin-pwa` (Workbox) | Pantallas de venta, catálogo, caja y reportes; diseño táctil mobile-first; lectura de códigos de barras por cámara o lector USB/Bluetooth. |
+| **PWA** | React 19, Vite, TypeScript 6, TanStack Query, React Router 8, `vite-plugin-pwa` (Workbox) | Pantallas de venta, catálogo, caja y reportes; diseño táctil mobile-first; lectura de códigos de barras por cámara o lector USB/Bluetooth. |
 | **Almacenamiento local** | IndexedDB vía Dexie | Copia del catálogo, caja abierta y **outbox** de ventas pendientes de sincronizar. |
 | **API** | FastAPI, Pydantic v2 | API REST `/api/v1`, OpenAPI automático; validación estricta de payloads; tipos del cliente generados desde OpenAPI. |
 | **Auth Guard + Tenant Context** | Dependencias de FastAPI, PyJWT | Valida el JWT propio y que su sesión siga vigente, resuelve `tenant_id` y `role`, verifica permisos y fija `SET LOCAL app.tenant_id` en cada transacción. |

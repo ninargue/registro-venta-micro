@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Estado actual
 
-Entrega 1 — documentación técnica del MVP, **sin código todavía**. El repositorio contiene únicamente el README técnico, el log de prompts, el CHANGELOG y la configuración de GitHub (workflows, templates, CONTRIBUTING). El código se agrega en la Entrega 2.
+Entrega 2 — dependencias del backend (uv, Python 3.14) y frontend (npm, Node 26) configuradas; scaffold de la aplicación en curso.
 
 ## Comandos de desarrollo (previstos para cuando exista el código)
 
@@ -14,11 +14,10 @@ supabase start
 
 # Backend
 cd backend
-python -m venv .venv && source .venv/bin/activate   # Windows: .venv\Scripts\activate
-pip install -e ".[dev]"
-alembic upgrade head
-python -m scripts.seed
-uvicorn app.main:app --reload        # http://localhost:8000/docs
+uv sync                              # instala dependencias (prod + dev) en .venv
+uv run alembic upgrade head
+uv run python -m scripts.seed
+uv run uvicorn app.main:app --reload # http://localhost:8000/docs
 
 # Frontend
 cd frontend
@@ -26,19 +25,19 @@ npm ci
 npm run dev                          # http://localhost:5173
 
 # Tests
-cd backend && pytest                 # unitarios, integración y aislamiento multitenant
+cd backend && uv run pytest          # unitarios, integración y aislamiento multitenant
 cd frontend && npm test              # Vitest
 npx playwright test                  # E2E
 
 # Un solo test de backend
-pytest tests/path/to/test_file.py::test_name
+uv run pytest tests/path/to/test_file.py::test_name
 ```
 
 ## Arquitectura
 
 **Patrón:** cliente-servidor API-first, monolito modular en el backend, PWA offline-first en el cliente.
 
-- **Frontend:** React 18 + Vite + TypeScript + TanStack Query. PWA con Service Worker (Workbox) e IndexedDB (Dexie) para catálogo, caja abierta y **outbox** de ventas pendientes.
+- **Frontend:** React 19 + Vite + TypeScript 6 + TanStack Query + React Router 8. PWA con Service Worker (Workbox) e IndexedDB (Dexie) para catálogo, caja abierta y **outbox** de ventas pendientes.
 - **Backend:** FastAPI + SQLAlchemy 2 async + asyncpg. Capas `Router → Service → Repository`. Módulos de dominio: `auth`, `tenancy`, `catalog`, `sales`, `inventory`, `cash`, `reports`, `assistant`.
 - **Base de datos:** PostgreSQL 17 vía Supabase (`sa-east-1`). Multitenant con `tenant_id NOT NULL` en toda tabla operativa y RLS forzada. Las migraciones son la única vía para cambiar el esquema (Alembic, nunca el panel de Supabase).
 - **Auth:** Supabase Auth para credenciales; el backend emite su propia sesión (access JWT 15 min + refresh rotativo en cookies `HttpOnly; Secure; SameSite=Strict`). El navegador nunca habla con Supabase.
