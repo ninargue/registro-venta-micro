@@ -6,10 +6,16 @@ export default defineConfig({
   plugins: [react()],
   resolve: {
     alias: {
-      "@": resolve(__dirname, "src"),
+      "@": resolve(import.meta.dirname, "src"),
     },
   },
   server: {
-    port: 5173,
+    // Puerto propio y fijo; strictPort hace que Vite falle si está ocupado en vez de cambiarlo.
+    port: 5174,
+    strictPort: true,
+    proxy: {
+      // En producción la PWA y la API comparten dominio; en dev el proxy reenvía /api al backend.
+      "/api": "http://localhost:8000",
+    },
   },
 });
