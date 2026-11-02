@@ -22,7 +22,7 @@ uv run uvicorn app.main:app --reload # http://localhost:8000/docs
 # Frontend
 cd frontend
 npm ci
-npm run dev                          # http://localhost:5173
+npm run dev                          # http://localhost:5174
 
 # Tests
 cd backend && uv run pytest          # unitarios, integración y aislamiento multitenant

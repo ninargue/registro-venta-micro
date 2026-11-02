@@ -127,10 +127,10 @@ cd registro-venta-micro
 supabase start
 
 # 3. Variables de entorno
-#    Frontend: frontend/.env.development ya viene versionado (solo valores públicos, p. ej. VITE_API_URL)
+#    Frontend: sin variables en desarrollo; el proxy de Vite reenvía /api al backend
 #    Backend: lleva claves (aunque sean locales), por eso se copia desde el ejemplo y no se versiona
 cp backend/.env.example backend/.env
-#    Completar SUPABASE_URL y las claves con la salida de `supabase status`
+#    DATABASE_URL ya apunta a la base local; ajústala solo si cambiaste el puerto en supabase/config.toml (ver `supabase status`)
 
 # 4. Backend: dependencias, migraciones y semillas
 cd backend
@@ -142,7 +142,7 @@ uv run uvicorn app.main:app --reload   # http://localhost:8000/docs
 # 5. Frontend (otra terminal)
 cd frontend
 npm ci
-npm run dev                     # http://localhost:5173
+npm run dev                     # http://localhost:5174
 
 # 6. Tests
 cd backend && uv run pytest     # unitarios, integración y aislamiento entre tenants
