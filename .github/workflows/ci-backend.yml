@@ -1,0 +1,153 @@
+name: CI Backend
+
+# Lint, tipos, auditoría de dependencias, tests e integridad de migraciones del backend.
+# Solo corre cuando cambian el backend, la configuración de Supabase o este mismo workflow.
+
+on:
+  pull_request:
+    branches:
+      - develop
+      - master
+      - 'release/**'
+    paths:
+      - 'backend/**'
+      - 'supabase/**'
+      - '.github/workflows/ci-backend.yml'
+  push:
+    branches:
+      - develop
+      - master
+    paths:
+      - 'backend/**'
+      - 'supabase/**'
+      - '.github/workflows/ci-backend.yml'
+
+permissions:
+  contents: read
+
+# Cancela ejecuciones anteriores de la misma rama/PR.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+defaults:
+  run:
+    working-directory: backend
+
+env:
+  # Credenciales locales de Supabase (públicas); puerto de supabase/config.toml.
+  DATABASE_URL: postgresql+asyncpg://postgres:postgres@127.0.0.1:54422/postgres
+
+jobs:
+  audit:
+    name: Auditoría de dependencias (producción)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v10.3.3
+        with:
+          enable-cache: true
+      - name: Instalar dependencias
+        run: uv sync --frozen
+      - name: Exportar solo dependencias de producción
+        run: uv export --frozen --no-dev --no-emit-project -o requirements-prod.txt
+      - name: pip-audit (falla ante cualquier vulnerabilidad)
+        run: uv run pip-audit -r requirements-prod.txt
+
+  lint:
+    name: Lint (ruff)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v10.3.3
+        with:
+          enable-cache: true
+      - name: Instalar dependencias
+        run: uv sync --frozen
+      - name: ruff check
+        run: uv run ruff check .
+      - name: ruff format --check
+        run: uv run ruff format --check .
+
+  typecheck:
+    name: Typecheck (mypy)
+    needs: lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v10.3.3
+        with:
+          enable-cache: true
+      - name: Instalar dependencias
+        run: uv sync --frozen
+      - name: mypy
+        run: uv run mypy app
+
+  tests:
+    name: Tests (pytest)
+    needs: typecheck
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v10.3.3
+        with:
+          enable-cache: true
+      - uses: supabase/setup-cli@v3
+        with:
+          version: 2.119.0
+      - name: Levantar solo la base de Supabase
+        working-directory: ${{ github.workspace }}
+        run: supabase db start
+      - name: Instalar dependencias
+        run: uv sync --frozen
+      - name: Aplicar migraciones
+        run: uv run alembic upgrade head
+      - name: pytest con cobertura
+        run: uv run pytest --cov-report=xml
+      - name: Subir coverage.xml
+        uses: actions/upload-artifact@v7
+        with:
+          name: coverage-xml
+          path: backend/coverage.xml
+
+  migrations-integrity:
+    name: Integridad de migraciones
+    needs: typecheck
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - uses: astral-sh/setup-uv@v10.3.3
+        with:
+          enable-cache: true
+      - uses: supabase/setup-cli@v3
+        with:
+          version: 2.119.0
+      - name: Verificar que no se modifiquen migraciones existentes
+        working-directory: ${{ github.workspace }}
+        run: |
+          git fetch --quiet origin "$BASE"
+          changed=$(git diff --name-status --diff-filter=DMR "origin/$BASE...HEAD" -- backend/migrations/versions/)
+          if [ -n "$changed" ]; then
+            echo "Se modificaron o eliminaron migraciones existentes (solo se permiten nuevas):"
+            echo "$changed"
+            exit 1
+          fi
+          echo "OK: no se modifican migraciones existentes."
+        env:
+          BASE: ${{ github.base_ref }}
+      - name: Levantar solo la base de Supabase
+        working-directory: ${{ github.workspace }}
+        run: supabase db start
+      - name: Instalar dependencias
+        run: uv sync --frozen
+      - name: upgrade head
+        run: uv run alembic upgrade head
+      - name: check (sin cambios de esquema pendientes)
+        run: uv run alembic check
+      - name: downgrade base
+        run: uv run alembic downgrade base
+      - name: upgrade head (de nuevo)
+        run: uv run alembic upgrade head
