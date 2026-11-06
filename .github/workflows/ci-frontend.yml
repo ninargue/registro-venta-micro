@@ -1,0 +1,140 @@
+name: CI Frontend
+
+# Auditoría, lint, tipos, build, tests unitarios y E2E de la PWA.
+# Solo corre cuando cambian el frontend, la versión de Node o este mismo workflow.
+
+on:
+  pull_request:
+    branches:
+      - develop
+      - master
+      - 'release/**'
+    paths:
+      - 'frontend/**'
+      - '.nvmrc'
+      - '.github/workflows/ci-frontend.yml'
+  push:
+    branches:
+      - develop
+      - master
+    paths:
+      - 'frontend/**'
+      - '.nvmrc'
+      - '.github/workflows/ci-frontend.yml'
+
+permissions:
+  contents: read
+
+# Cancela ejecuciones anteriores de la misma rama, solo en pull requests.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+defaults:
+  run:
+    working-directory: frontend
+
+jobs:
+  audit:
+    name: Auditoría de dependencias (producción)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: npm audit
+        run: npm audit --omit=dev --audit-level=moderate
+
+  lint:
+    name: Lint (eslint + prettier)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: Instalar dependencias
+        run: npm ci
+      - name: eslint
+        run: npm run lint
+      - name: prettier --check
+        run: npm run format:check
+
+  typecheck-build:
+    name: Typecheck y build
+    needs: lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: Instalar dependencias
+        run: npm ci
+      - name: typecheck
+        run: npm run typecheck
+      - name: build
+        run: npm run build
+
+  test-unit:
+    name: Tests unitarios (vitest)
+    needs: typecheck-build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: Instalar dependencias
+        run: npm ci
+      - name: Tests con cobertura
+        run: npm run test:coverage
+      - name: Subir cobertura
+        uses: actions/upload-artifact@v7
+        with:
+          name: coverage-frontend
+          path: frontend/coverage
+
+  test-e2e:
+    name: Tests E2E (playwright)
+    needs: typecheck-build
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: Versión de @playwright/test (clave de caché)
+        id: pw
+        run: echo "version=$(node -p "require('./package-lock.json').packages['node_modules/@playwright/test'].version")" >> "$GITHUB_OUTPUT"
+      - name: Caché de navegadores de Playwright
+        id: playwright-cache
+        uses: actions/cache@v6
+        with:
+          path: ~/.cache/ms-playwright
+          key: ${{ runner.os }}-playwright-${{ steps.pw.outputs.version }}
+      - name: Instalar dependencias
+        run: npm ci
+      - name: Instalar navegadores de Playwright
+        # Con caché presente no descarga el navegador; --with-deps instala las dependencias del sistema (solo Linux).
+        run: npx playwright install --with-deps chromium
+      - name: E2E (el webServer de playwright hace build y levanta el server)
+        run: npm run test:e2e
+      - name: Subir reporte de Playwright si falla
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: playwright-report
+          path: frontend/playwright-report
