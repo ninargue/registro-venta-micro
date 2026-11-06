@@ -27,6 +27,7 @@ jobs:
 
           KEBAB='[a-z0-9]+(-[a-z0-9]+)*'
           RELEASE='release/v[0-9]+\.[0-9]+\.[0-9]+'
+          DEPENDABOT='dependabot/.+'
 
           if [ "$BASE" = "master" ]; then
             if echo "$HEAD" | grep -qE "^(develop|$RELEASE|hotfix/$KEBAB)$"; then
@@ -40,7 +41,7 @@ jobs:
           fi
 
           if [ "$BASE" = "develop" ]; then
-            if echo "$HEAD" | grep -qE "^((feature|fix|hotfix|chore|refactor|docs|test)/$KEBAB|$RELEASE)$"; then
+            if echo "$HEAD" | grep -qE "^((feature|fix|hotfix|chore|refactor|docs|test)/$KEBAB|$DEPENDABOT|$RELEASE)$"; then
               echo "✅ Rama '$HEAD' permitida hacia develop."
               exit 0
             else
