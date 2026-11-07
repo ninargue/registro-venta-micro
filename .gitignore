@@ -39,3 +39,6 @@ dist/
 # Supabase local
 supabase/.branches/
 supabase/.temp/
+
+# Claude Code (configuración personal)
+.claude/settings.local.json
