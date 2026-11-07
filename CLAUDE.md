@@ -4,19 +4,32 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Estado actual
 
-Entrega 2 — dependencias del backend (uv, Python 3.14) y frontend (npm, Node 26) configuradas; scaffold de la aplicación en curso.
+Entrega 2 — scaffold en marcha. Ya existen:
 
-## Comandos de desarrollo (previstos para cuando exista el código)
+- **Backend:** FastAPI con `GET /api/v1/health`; config con `pydantic-settings`; tooling uv + ruff + mypy + pytest.
+- **Base de datos:** Supabase local (Docker) y Alembic inicializado con la migración baseline (vacía).
+- **Frontend:** React + Vite con una ruta (`/`), Vitest y un smoke test E2E con Playwright.
+- **Hooks de git:** husky + lint-staged (pre-commit y pre-push).
+- **CI:** workflows `ci-backend.yml` y `ci-frontend.yml` en `.github/workflows/`.
+
+**Plan:** lo siguiente son los módulos de dominio a partir de los tickets del README; el plugin PWA (Workbox) se configura junto con la funcionalidad offline.
+
+## Comandos de desarrollo
+
+Node 26 vía [fnm](https://github.com/Schniz/fnm) (lee `.nvmrc`).
 
 ```bash
+# Hooks de git (una vez, en la raíz del repo): instala husky + lint-staged
+npm install
+
 # Supabase local (Docker)
-supabase start
+supabase start                       # stack completo
+# supabase db start                  # solo Postgres (p. ej. migraciones/tests)
 
 # Backend
 cd backend
 uv sync                              # instala dependencias (prod + dev) en .venv
 uv run alembic upgrade head
-uv run python -m scripts.seed
 uv run uvicorn app.main:app --reload # http://localhost:8000/docs
 
 # Frontend
@@ -24,14 +37,22 @@ cd frontend
 npm ci
 npm run dev                          # http://localhost:5174
 
-# Tests
-cd backend && uv run pytest          # unitarios, integración y aislamiento multitenant
-cd frontend && npm test              # Vitest
-npx playwright test                  # E2E
+# Tests que existen hoy
+cd backend && uv run pytest          # unitarios (tests/unit/test_health.py)
+cd frontend && npm test              # Vitest (src/app/router.test.tsx)
+cd frontend && npm run test:e2e      # Playwright E2E (tests/e2e/smoke.spec.ts)
 
 # Un solo test de backend
 uv run pytest tests/path/to/test_file.py::test_name
 ```
+
+## Reglas para el agente
+
+- Antes de cada commit, ejecutar los checks relevantes (lint, typecheck, tests) y mostrar una breve salida al usuario.
+- No desactivar reglas de lint ni de tipos para que pase un check.
+- Agregar dependencias con `uv add` (backend) o `npm install` (frontend/raíz), nunca editando los manifiestos a mano.
+- Antes de afirmar qué soporta una plataforma (Vercel, Supabase, GitHub) o qué versión de una action existe, consultar la fuente y citarla.
+- Al commitear, agregar solo los archivos del cambio (nunca `git add .` ni `-A`) y no tocar `.claude/`.
 
 ## Arquitectura
 

@@ -119,11 +119,13 @@ flowchart LR
 **Requisitos:** Git, Docker, [Supabase CLI](https://supabase.com/docs/guides/local-development), Python 3.14, Node.js 26. Se recomienda [fnm](https://github.com/Schniz/fnm) para gestionar la versión de Node (lee `.nvmrc` automáticamente).
 
 ```bash
-# 1. Clonar
+# 1. Clonar e instalar las herramientas del repo
 git clone https://github.com/ninargue/registro-venta-micro.git
 cd registro-venta-micro
+npm install                     # instala los hooks de git (husky + lint-staged)
 
 # 2. Levantar Supabase local (Postgres 17, Auth y Storage en Docker)
+#    Usa el rango de puertos 544xx definido en supabase/config.toml (ver `supabase status`)
 supabase start
 
 # 3. Variables de entorno
@@ -321,7 +323,7 @@ flowchart LR
 | **Superficie mínima** | El navegador no incluye el SDK de Supabase; la Data API (PostgREST) está desactivada; CORS restringido al dominio de la PWA; rate limiting en login y en el asistente. |
 | **Validación estricta** | Pydantic en todos los payloads (p. ej. la suma de pagos debe igualar el total, cantidades positivas). |
 | **IA acotada** | El asistente no genera SQL: solo invoca reportes predefinidos que corren con el `tenant_id` del token y bajo RLS. |
-| **Secretos fuera del repo** | `.env` ignorado, `.env.example` versionado; secret scanning con push protection y `gitleaks` en pre-commit; secretos de runtime en las variables de entorno de Vercel por ambiente y secretos de despliegue en GitHub Environments. |
+| **Secretos fuera del repo** | `.env` ignorado, `.env.example` versionado; la protección de push de GitHub (secret scanning con push protection); secretos de runtime en las variables de entorno de Vercel por ambiente y secretos de despliegue en GitHub Environments. |
 | **Dependencias** | Dependabot semanal, `pip-audit` y `npm audit` en CI, CodeQL. |
 | **Reporte de vulnerabilidades** | Canal privado de GitHub, descrito en [SECURITY.md](.github/SECURITY.md). |
 
@@ -337,17 +339,17 @@ CREATE POLICY tenant_isolation ON sales
 
 ### **2.6. Tests**
 
-> Estrategia **prevista** (Entrega 1 sin código). La suite completa es parte de la Entrega final.
+> Entrega 2: hoy existe un test mínimo por nivel que ya corre (el *walking skeleton*); los ejemplos de negocio de la tabla son la cobertura **prevista**, que se completa junto con cada módulo.
 
-| Nivel | Herramientas | Qué se prueba (ejemplos) |
-|-------|--------------|--------------------------|
-| **Unitarios (backend)** | pytest | Cálculo de totales, descuentos y diferencia de caja; validación de que los pagos suman el total; reglas de rol. |
-| **Integración (backend)** | pytest + httpx contra Supabase efímero | `POST /api/v1/sales` idempotente: reenviar el mismo `id` produce una sola venta y un solo descuento de stock; ventas concurrentes del mismo producto sin actualizaciones perdidas; venta con stock insuficiente se registra y genera alerta. |
-| **Aislamiento entre tenants** | pytest | Por cada endpoint, un usuario del negocio A intenta leer y modificar recursos del negocio B y recibe `404`; test que recorre `pg_class` / `pg_policies` y falla si una tabla con `tenant_id` no tiene RLS forzada. |
-| **Unitarios (frontend)** | Vitest | Cálculo del carrito; estados del outbox (pendiente, enviando, sincronizada, error). |
-| **End-to-end** | Playwright | Venta completa en viewport de celular; venta en modo avión que se sincroniza al reconectar; cierre de caja; un cajero no ve costos. |
+| Nivel | Herramientas | Estado hoy | Qué se prueba (ejemplos previstos) |
+|-------|--------------|------------|------------------------------------|
+| **Unitarios (backend)** | pytest | ✅ Existe: `backend/tests/unit/test_health.py` | Cálculo de totales, descuentos y diferencia de caja; validación de que los pagos suman el total; reglas de rol. |
+| **Integración (backend)** | pytest + httpx contra Supabase efímero | ⏳ Previsto | `POST /api/v1/sales` idempotente: reenviar el mismo `id` produce una sola venta y un solo descuento de stock; ventas concurrentes del mismo producto sin actualizaciones perdidas; venta con stock insuficiente se registra y genera alerta. |
+| **Aislamiento entre tenants** | pytest | ⏳ Previsto | Por cada endpoint, un usuario del negocio A intenta leer y modificar recursos del negocio B y recibe `404`; test que recorre `pg_class` / `pg_policies` y falla si una tabla con `tenant_id` no tiene RLS forzada. |
+| **Unitarios (frontend)** | Vitest | ✅ Existe: `frontend/src/app/router.test.tsx` | Cálculo del carrito; estados del outbox (pendiente, enviando, sincronizada, error). |
+| **End-to-end** | Playwright | ✅ Existe: smoke test (`frontend/tests/e2e/smoke.spec.ts`) | Venta completa en viewport de celular; venta en modo avión que se sincroniza al reconectar; cierre de caja; un cajero no ve costos. |
 
-Todos corren en CI en cada PR.
+Los tests que existen hoy corren en CI en cada PR (workflows `ci-backend.yml` y `ci-frontend.yml`).
 
 ---
 
