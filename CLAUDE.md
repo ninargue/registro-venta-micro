@@ -46,15 +46,6 @@ cd frontend && npm run test:e2e      # Playwright E2E (tests/e2e/smoke.spec.ts)
 uv run pytest tests/path/to/test_file.py::test_name
 ```
 
-## Reglas para el agente
-
-- Hacer cada commit mediante el skill `commit`.
-- No hacer `git push` hasta que el usuario lo confirme explícitamente, en cada ocasión. Excepción: el push inicial que crea la rama en el remoto al iniciarla (skill `lifecycle-dev`).
-- No desactivar reglas de lint ni de tipos para que pase un check.
-- Agregar dependencias con `uv add` (backend) o `npm install` (frontend/raíz), nunca editando los manifiestos a mano.
-- Antes de afirmar qué soporta una plataforma (Vercel, Supabase, GitHub) o qué versión de una action existe, consultar la fuente y citarla.
-- Al commitear, agregar solo los archivos del cambio (nunca `git add .` ni `-A`).
-
 ## Arquitectura
 
 **Patrón:** cliente-servidor API-first, monolito modular en el backend, PWA offline-first en el cliente.
@@ -98,8 +89,9 @@ PRs hacia `master` (`release/*`, `hotfix/*`) → **Create a merge commit**.
 - Releases y hotfixes terminan con tag `vX.Y.Z` + release en GitHub con notas del changelog.
 - El workflow **Backport PR** abre automáticamente el PR de backport a `develop`; hay que cerrarlo y reabrirlo para disparar el check obligatorio.
 
-## Reglas de proceso
-- Antes de iniciar el desarrollo de un issue, preparar rama, worktree, workspace de acuerdo al skill `lifecycle-dev`.
-- Al cerrar la tarea: usar la skill `/commit`, luego `gh pr create` con una descripción completa de los cambios en el cuerpo del PR.
-- Después de abrir el PR: usar el subagente `adversarial-reviewer` sobre él, antes de darlo por terminado.
-- No repitas ese resumen en el chat: la sesión se va a perder, el PR no. Responde solo con la URL del PR.
+## Reglas para el agente
+
+- Todo issue se trabaja de principio a fin con el skill `lifecycle-dev`: preparar rama, worktree y workspace; desarrollar con commits atómicos; cerrar el desarrollo y, al final, mergear y limpiar.
+- No desactivar reglas de lint ni de tipos para que pase un check.
+- Agregar dependencias con `uv add` (backend) o `npm install` (frontend/raíz), nunca editando los manifiestos a mano.
+- Antes de afirmar qué soporta una plataforma (Vercel, Supabase, GitHub) o qué versión de una action existe, consultar la fuente y citarla.

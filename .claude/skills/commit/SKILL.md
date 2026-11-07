@@ -1,6 +1,6 @@
 ---
 name: commit
-description: Creates a Conventional Commit in this repo after running the relevant checks and showing their output. Use it when closing a task or whenever the user asks to commit ("commitea", "haz commit", "commit"), even if they don't name the skill.
+description: Creates a Conventional Commit in this repo after running the relevant checks and showing their output. Use it only when the user explicitly asks for a commit ("commitea", "haz commit", "commit") or confirms one proposed by the lifecycle-dev skill. Never commit on your own initiative.
 ---
 
 # Commit
@@ -12,7 +12,6 @@ Read these before committing; don't copy their rules here, so this skill doesn't
 | Topic | Canonical source |
 |---|---|
 | Message format, types, scopes, breaking changes | `.github/CONTRIBUTING.md` → *Convención de commits*; `CLAUDE.md` |
-| Agent rules: staging, push | `CLAUDE.md` → *Reglas para el agente* |
 | Which checks apply to which layer | `.husky/pre-push` (backend and frontend steps) |
 
 If this skill and those sources disagree, the sources win. Tell the user so the skill can be fixed.
@@ -29,4 +28,8 @@ If this skill and those sources disagree, the sources win. Tell the user so the 
 
 5. **Commit:** `git commit -m "<subject>" [-m "<body>"]`. The husky pre-commit hook runs lint-staged and may reformat files. If it fails, show the output, fix the cause, and create a new commit. Never use `--no-verify`, and don't amend unless the user asks.
 
-6. **Report** the commit hash and subject (`git log --oneline -1`). Don't push: per `CLAUDE.md`, a push needs the user's explicit confirmation every time.
+6. **Report** the commit hash and subject (`git log --oneline -1`). 
+
+## Push
+
+Never run `git push` until the user explicitly confirms it, every time. This skill is the canonical source for that rule. The only exception is the initial push that creates a new branch on the remote, in the `lifecycle-dev` Create flow.

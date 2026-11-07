@@ -42,3 +42,6 @@ supabase/.temp/
 
 # Claude Code (configuración personal)
 .claude/settings.local.json
+
+# Informes del subagente adversarial-reviewer (locales)
+docs/reviews/
