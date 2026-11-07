@@ -188,8 +188,10 @@ Si no hay conflictos, también puede usarse el botón **Update branch** del PR e
 ```bash
 git checkout develop
 git pull origin develop
-git branch -d feature/nombre-descriptivo
+git branch -D feature/nombre-descriptivo
 ```
+
+Se usa `-D` porque, tras un squash, el commit en `develop` tiene otro SHA y `git branch -d` siempre responde "not fully merged". Antes de borrarla, confirmar que el PR figura como **Merged**.
 
 ---
 

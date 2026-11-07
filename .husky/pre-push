@@ -1,0 +1,72 @@
+#!/usr/bin/env sh
+
+# Los hooks de git no cargan el perfil del shell, asi que fnm no se activa solo.
+# Si fnm esta instalado, usamos la version de .nvmrc; si no, seguimos con el Node disponible.
+if command -v fnm >/dev/null 2>&1; then
+	eval "$(fnm env)"
+	fnm use >/dev/null 2>&1 || true
+fi
+
+# Base de comparacion: la rama en el remoto si existe; si no, origin/develop.
+branch=$(git rev-parse --abbrev-ref HEAD)
+if git rev-parse --verify --quiet "refs/remotes/origin/$branch" >/dev/null 2>&1; then
+	base="origin/$branch"
+elif git rev-parse --verify --quiet "refs/remotes/origin/develop" >/dev/null 2>&1; then
+	base="origin/develop"
+else
+	base=""
+fi
+
+backend_changed=0
+frontend_changed=0
+if [ -n "$base" ]; then
+	echo "pre-push: comparando cambios contra $base"
+	changed=$(git diff --name-only "$base...HEAD")
+	printf '%s\n' "$changed" | grep -q '^backend/'  && backend_changed=1
+	printf '%s\n' "$changed" | grep -q '^frontend/' && frontend_changed=1
+else
+	# Sin rama remota ni origin/develop: no podemos acotar, verificamos todo.
+	echo "pre-push: no hay base remota ni origin/develop; verifico backend y frontend." >&2
+	backend_changed=1
+	frontend_changed=1
+fi
+
+if [ "$backend_changed" = 0 ] && [ "$frontend_changed" = 0 ]; then
+	echo "pre-push: sin cambios en backend/ ni frontend/ (p. ej. solo documentacion). Nada que verificar."
+	exit 0
+fi
+
+# Comprobaciones de entorno solo para las capas que se van a verificar.
+if [ "$backend_changed" = 1 ] && ! command -v uv >/dev/null 2>&1; then
+	echo "pre-push: falta 'uv'. Instalalo: https://docs.astral.sh/uv/" >&2
+	exit 1
+fi
+if [ "$frontend_changed" = 1 ] && [ ! -d frontend/node_modules ]; then
+	echo "pre-push: faltan dependencias del frontend. Ejecuta: npm --prefix frontend ci" >&2
+	exit 1
+fi
+
+# Ejecuta un paso y cancela el push con un mensaje claro si falla.
+run() {
+	desc="$1"
+	shift
+	echo "pre-push -> $desc"
+	if ! "$@"; then
+		echo "" >&2
+		echo "pre-push: FALLO el paso '$desc'. Push cancelado." >&2
+		exit 1
+	fi
+}
+
+if [ "$backend_changed" = 1 ]; then
+	run "backend: mypy app"    uv run --directory backend mypy app
+	run "backend: pytest unit" uv run --directory backend pytest tests/unit
+fi
+
+if [ "$frontend_changed" = 1 ]; then
+	run "frontend: lint"      npm --prefix frontend run lint
+	run "frontend: typecheck" npm --prefix frontend run typecheck
+	run "frontend: tests"     npm --prefix frontend test
+fi
+
+echo "pre-push: OK, los pasos de las capas con cambios pasaron."
