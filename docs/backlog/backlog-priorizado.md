@@ -10,20 +10,28 @@
 
 ```mermaid
 graph TD
-    classDef be fill:#e1f5fe,stroke:#0288d1,stroke-width:2px;
-    classDef fe fill:#f3e5f5,stroke:#7b1fa2,stroke-width:2px;
-    classDef db fill:#e8f5e9,stroke:#388e3c,stroke-width:2px;
+    classDef be fill:#0284c7,stroke:#0369a1,stroke-width:2px,color:#ffffff;
+    classDef fe fill:#7c3aed,stroke:#6d28d9,stroke-width:2px,color:#ffffff;
+    classDef db fill:#059669,stroke:#047857,stroke-width:2px,color:#ffffff;
 
-    T01["TICKET-01: Auth & Tenant Session (BE)"]:::be
-    T02["TICKET-02: Login UI & Storage (FE)"]:::fe
-    T03["TICKET-03: Esquema Catálogo & RLS (DB)"]:::db
-    T04["TICKET-04: API Catálogo REST (BE)"]:::be
-    T05["TICKET-05: Vista Catálogo (FE)"]:::fe
-    T06["TICKET-06: Esquema Ventas & Idempotencia (DB)"]:::db
-    T07["TICKET-07: Servicio Venta Idempotente (BE)"]:::be
-    T08["TICKET-08: Mostrador & Cobro Multimedio (FE)"]:::fe
-    T09["TICKET-09: Endpoint Reporte Diario (BE)"]:::be
-    T10["TICKET-10: Vista Reporte Diario (FE)"]:::fe
+    subgraph BE ["Backend (FastAPI)"]
+        T01["TICKET-01: Auth & Tenant Session"]:::be
+        T04["TICKET-04: API Catálogo REST"]:::be
+        T07["TICKET-07: Servicio Venta Idempotente"]:::be
+        T09["TICKET-09: Endpoint Reporte Diario"]:::be
+    end
+
+    subgraph DB ["Base de Datos (PostgreSQL / RLS)"]
+        T03["TICKET-03: Esquema Catálogo & RLS"]:::db
+        T06["TICKET-06: Esquema Ventas & Idempotencia"]:::db
+    end
+
+    subgraph FE ["Frontend (React / PWA)"]
+        T02["TICKET-02: Login UI & Storage"]:::fe
+        T05["TICKET-05: Vista Catálogo"]:::fe
+        T08["TICKET-08: Mostrador & Cobro Multimedio"]:::fe
+        T10["TICKET-10: Vista Reporte Diario"]:::fe
+    end
 
     T01 --> T02
     T01 --> T03
