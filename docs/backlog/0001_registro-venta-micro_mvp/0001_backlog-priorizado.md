@@ -76,23 +76,22 @@ flowchart TD
 ## 4. Matriz Impacto vs. Complejidad
 
 ```
- ALTO  │
-       │  [Quick Wins ⭐]               [Proyectos Clave]
-       │  ⭐ T01 (Auth & Onboarding)     T07 (Venta Idempotente + Stock)
-       │  ⭐ T03 (Esquema Catálogo)      T08 (Mostrador con Vuelto FE)
-       │  ⭐ T09 (Reporte en Hora Local) T06 (Esquema Ventas RLS)
-IMPACTO│
-       ├─────────────────────────────────────────────────────────────
-       │  [Tareas Menores]              [Evaluar / Descartables]
-       │  T02 (Login/Onboarding UI FE)  (Notas de crédito - POST-MVP)
-       │  T04 (API Catálogo BE)         (Arqueos y sesiones - POST-MVP)
-       │  T05 (Catálogo UI FE)          (IA Assistant - POST-MVP)
-       │  T10 (Reporte UI FE)           (Motor de impuestos - POST-MVP)
-       │                                (Gestión empleados/roles - POST-MVP)
- BAJO  │
-       └─────────────────────────────────────────────────────────────
-          BAJA                        COMPLEJIDAD               ALTA
+ IMPACTO
+  ALTO  │ [Quick Wins ⭐]             [Core MVP - Transaccional]  [Post-MVP / Alta Complejidad]
+        │ ⭐ T01 (Auth & Onboarding)   T07 (Venta Idemp. + Stock)  • Motor de impuestos (IVA)
+        │ ⭐ T03 (Esquema Catálogo)    T08 (Mostrador con Vuelto)  • Notas de crédito y débito
+        │ ⭐ T09 (Reporte Diario)      T06 (Esquema Ventas RLS)    • Arqueos y sesiones de caja
+        │                                                          • Gestión empleados y roles
+        ├────────────────────────────────────────────────────────────────────────────────────────
+ MEDIO/ │ [Habilitadores / UI]        [Gestión de Catálogo]       [Descartables / Baja prioridad]
+  BAJO  │ T02 (Login/Onboarding UI)   T04 (API Catálogo BE)       • Asistente IA lenguaje natural
+        │ T10 (Vista Reporte UI)      T05 (Vista Catálogo FE)     • Sincronización offline multi-tab
+        └────────────────────────────────────────────────────────────────────────────────────────
+                  BAJA                         MEDIA                         ALTA
+                                            COMPLEJIDAD
 ```
 
-- **Quick Wins (⭐):** `T01`, `T03` y `T09` entregan alto valor inmediato con bajo esfuerzo.
+- **Quick Wins (⭐):** `T01`, `T03` y `T09` entregan alto valor inmediato con bajo esfuerzo (complejidad baja).
+- **Core MVP (Complejidad Media):** `T06`, `T07` y `T08` resuelven el corazón transaccional de ventas, stock e idempotencia sin sobrediseñar.
+- **Post-MVP (Alto Impacto / Alta Complejidad):** Requerimientos como el motor impositivo, notas de crédito, arqueos ciegos y gestión de empleados aportan valor pero su alta complejidad técnica y fiscal sobrecargaría el lanzamiento inicial.
 - **Ruta Crítica:** `T01` → `T03` → `T06` → `T07` → `T08`.
