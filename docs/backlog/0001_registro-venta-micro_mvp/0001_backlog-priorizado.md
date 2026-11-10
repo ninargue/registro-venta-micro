@@ -2,6 +2,7 @@
 
 > **Ciclo:** it-project-orchestrator (stories-to-tickets)  
 > **Fecha:** 2026-11-09  
+> **PRD de Referencia:** [0001_registro-venta-micro_mvp.md](../../prd/0001_registro-venta-micro_mvp.md) (y documento de alcance: [0001_alcance_mvp.md](../../prd/0001_alcance_mvp.md))  
 > **Alcance:** MVP Acotado a 3 funcionalidades principales (Auth/Catálogo, Venta Multimedio, Reporte Diario)  
 
 ---
@@ -59,16 +60,16 @@ flowchart TD
 
 | Ticket | Título | Capa | Talla | Riesgo | Justificación Técnica |
 |---|---|---|:---:|:---:|---|
-| **TICKET-01** | Auth, Onboarding & Sesión Tenant | Backend | **M** | Medio | Supabase Auth, endpoint `/onboarding` para creación de comercio con `timezone` y RLS. |
-| **TICKET-02** | Pantalla Login & Onboarding en PWA | Frontend | **S** | Bajo | Formulario de credenciales con paso simple de bienvenida para usuario nuevo. |
-| **TICKET-03** | Esquema Catálogo con RLS y Stock | Database | **S** | Bajo | Tabla `products` con columnas `sale_price`, `cost_price` y `stock` (`numeric(12,2)`). |
-| **TICKET-04** | API REST Catálogo de Productos | Backend | **M** | Bajo | CRUD estándar con esquemas Pydantic `Decimal` (precios brutos sin impuestos). |
-| **TICKET-05** | Vista de Catálogo en PWA | Frontend | **M** | Bajo | Grilla táctil reactiva con buscador y stock visible. |
-| **TICKET-06** | Esquema Ventas & Idempotencia RLS | Database | **M** | Medio | Tablas `sales`, `sale_items`, `payments` y clave única de idempotencia `(business_id, client_id)`. |
-| **TICKET-07** | Servicio Venta Idempotente & Stock | Backend | **L** | Medio | Transacción ACID: recálculo `Decimal`, descuento atómico de stock (permite negativo) y respuesta idempotente. |
-| **TICKET-08** | Mostrador, Vuelto en Efectivo & Cobro | Frontend | **L** | Medio | UI táctil de carrito, calculador de vuelto en efectivo y UUID persistido en carrito. |
-| **TICKET-09** | Endpoint Reporte Diario en Hora Local | Backend | **M** | Bajo | Agregaciones SQL por fecha local (`timezone`), cálculo de margen bruto y protección división por cero. |
-| **TICKET-10** | Vista de Reporte Diario | Frontend | **S** | Bajo | Pantalla con KPIs visuales y desglose por medio de pago. |
+| [**TICKET-01**](E1-catalogo/tickets-us-01-auth-y-negocio.md) | Auth, Onboarding & Sesión Tenant | Backend | **M** | Medio | Supabase Auth, endpoint `/onboarding` para creación de comercio con `timezone` y RLS. |
+| [**TICKET-02**](E1-catalogo/tickets-us-01-auth-y-negocio.md) | Pantalla Login & Onboarding en PWA | Frontend | **S** | Bajo | Formulario de credenciales con paso simple de bienvenida para usuario nuevo. |
+| [**TICKET-03**](E1-catalogo/tickets-us-02-gestion-catalogo.md) | Esquema Catálogo con RLS y Stock | Database | **S** | Bajo | Tabla `products` con columnas `sale_price`, `cost_price` y `stock` (`numeric(12,2)`). |
+| [**TICKET-04**](E1-catalogo/tickets-us-02-gestion-catalogo.md) | API REST Catálogo de Productos | Backend | **M** | Bajo | CRUD estándar con esquemas Pydantic `Decimal` (precios brutos sin impuestos). |
+| [**TICKET-05**](E1-catalogo/tickets-us-02-gestion-catalogo.md) | Vista de Catálogo en PWA | Frontend | **M** | Bajo | Grilla táctil reactiva con buscador y stock visible. |
+| [**TICKET-06**](E2-ventas/tickets-us-03-venta-multimedio-idempotente.md) | Esquema Ventas & Idempotencia RLS | Database | **M** | Medio | Tablas `sales`, `sale_items`, `payments` y clave única de idempotencia `(business_id, client_id)`. |
+| [**TICKET-07**](E2-ventas/tickets-us-03-venta-multimedio-idempotente.md) | Servicio Venta Idempotente & Stock | Backend | **L** | Medio | Transacción ACID: recálculo `Decimal`, descuento atómico de stock (permite negativo) y respuesta idempotente. |
+| [**TICKET-08**](E2-ventas/tickets-us-03-venta-multimedio-idempotente.md) | Mostrador, Vuelto en Efectivo & Cobro | Frontend | **L** | Medio | UI táctil de carrito, calculador de vuelto en efectivo y UUID persistido en carrito. |
+| [**TICKET-09**](E3-reportes/tickets-us-04-reporte-ventas-y-margen.md) | Endpoint Reporte Diario en Hora Local | Backend | **M** | Bajo | Agregaciones SQL por fecha local (`timezone`), cálculo de margen bruto y protección división por cero. |
+| [**TICKET-10**](E3-reportes/tickets-us-04-reporte-ventas-y-margen.md) | Vista de Reporte Diario | Frontend | **S** | Bajo | Pantalla con KPIs visuales y desglose por medio de pago. |
 
 ---
 
