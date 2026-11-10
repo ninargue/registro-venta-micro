@@ -1,45 +1,40 @@
-# US-01: Autenticación y Selección de Negocio
+# US-01: Autenticación, Onboarding y Acceso al Negocio
 
 **Épica:** E1-catalogo  
-**Estado:** Lista para refinamiento técnico  
+**Estado:** Consolidada v0.2  
 
 ---
 
 ## 1. Descripción
-**Como** dueño o cajero de un micronegocio,  
-**quiero** iniciar sesión con mis credenciales y acceder al entorno de mi negocio,  
-**para** operar el punto de venta de forma segura sin riesgo de ver ni alterar datos de otros comercios.
+**Como** dueño de un micronegocio,  
+**quiero** iniciar sesión con mis credenciales (o registrar mi comercio en el onboarding si es mi primer acceso),  
+**para** operar el punto de venta de forma segura con aislamiento multitenant estricto por RLS.
 
 ---
 
 ## 2. Criterios de Aceptación (Given / When / Then)
 
-### Escenario 1: Inicio de sesión exitoso con negocio vinculado
-- **Dado** que soy un usuario registrado con credenciales válidas en Supabase Auth,
-- **y** tengo un negocio asignado (`business_id`),
-- **cuando** envío mis credenciales al endpoint de login,
-- **entonces** el sistema me autentica, establece la sesión y me retorna el token JWT junto con los datos de mi negocio (`id`, `nombre`),
-- **y** todas las peticiones subsecuentes operan bajo el contexto RLS de ese `business_id`.
+### Escenario 1: Inicio de sesión exitoso con negocio existente
+- **Dado** que soy un usuario registrado en Supabase Auth con un negocio ya asignado,
+- **cuando** envío mis credenciales a `/api/v1/auth/login`,
+- **entonces** el sistema me autentica, resuelve mi `business_id` y emite el token de sesión,
+- **y** todas las peticiones posteriores inyectan `business_id` ejecutando `SET LOCAL app.current_business_id` en PostgreSQL.
 
-### Escenario 2: Intento de acceso con credenciales inválidas
-- **Dado** que ingreso un email o contraseña erróneos,
-- **cuando** intento iniciar sesión,
-- **entonces** el sistema rechaza la petición con código HTTP 401 y un mensaje claro de error sin filtrar detalles internos.
+### Escenario 2: Onboarding de primer acceso (usuario nuevo sin comercio)
+- **Dado** que un usuario se autentica exitosamente pero no tiene ningún comercio asociado,
+- **cuando** la PWA le solicita el nombre del comercio y país (`country`/`timezone`),
+- **y** se envía la petición a `POST /api/v1/auth/onboarding`,
+- **entonces** el backend crea la entidad en `businesses` con su país y zona horaria (ej. `America/Argentina/Buenos_Aires`),
+- **y** vincula al usuario como dueño, retornando la sesión lista para operar sin pedir credenciales nuevamente.
 
-### Escenario 3: Aislamiento estricto de datos (RLS)
-- **Dado** que estoy autenticado en el negocio A,
-- **cuando** intento consultar un recurso perteneciente al negocio B,
-- **entonces** la base de datos no retorna registros (o HTTP 404), garantizando aislamiento total a nivel de motor PostgreSQL.
+### Escenario 3: Intento de acceso con credenciales inválidas
+- **Dado** que ingreso credenciales incorrectas,
+- **cuando** intento autenticarme,
+- **entonces** el sistema responde HTTP 401 con mensaje genérico de error.
 
 ---
 
 ## 3. Reglas de Negocio
-- La relación en este MVP es de un único negocio activo por usuario registrado.
-- El `business_id` se extrae exclusivamente del token o contexto de sesión seguro en el servidor; nunca se acepta como parámetro libre en el body de peticiones de clientes.
-
----
-
-## 4. Fuera de Alcance de esta Historia
-- Registro público libre sin invitación/asociación previa.
-- Cambio entre múltiples negocios en caliente desde la interfaz.
-- Recuperación de contraseña por SMS/WhatsApp.
+- Cada usuario opera un único comercio en este lote.
+- El `business_id` se extrae únicamente del token o contexto seguro en backend, jamás del body de las peticiones.
+- La zona horaria del comercio se infiere del país registrado durante el onboarding.

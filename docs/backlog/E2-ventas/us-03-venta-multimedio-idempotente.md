@@ -1,52 +1,52 @@
-# US-03: Registro de Venta con Múltiples Medios de Pago e Idempotencia
+# US-03: Registro de Venta con Múltiples Medios de Pago, Stock e Idempotencia
 
 **Épica:** E2-ventas  
-**Estado:** Lista para refinamiento técnico  
+**Estado:** Consolidada v0.2  
 
 ---
 
 ## 1. Descripción
 **Como** cajero del micronegocio,  
-**quiero** registrar los productos seleccionados por el cliente, calcular el total y cobrar admitiendo uno o varios medios de pago simultáneos,  
-**para** completar transacciones de forma ágil y segura sin duplicación por fallas de conexión o reintentos, y sin requerir aperturas de caja previas.
+**quiero** totalizar la compra de productos, cobrar admitiendo medios de pago combinados con cálculo de vuelto en efectivo y emitir la venta directamente,  
+**para** completar transacciones en pocos toques, actualizar el stock de forma atómica y evitar ventas duplicadas ante reintentos.
 
 ---
 
 ## 2. Criterios de Aceptación (Given / When / Then)
 
-### Escenario 1: Venta exitosa directa con un solo medio de pago
-- **Dado** que el usuario está autenticado en su negocio,
-- **y** tiene productos agregados al carrito,
-- **cuando** confirma la venta pagada en su totalidad con efectivo,
-- **entonces** el servidor recalcula subtotales en `Decimal`,
-- **y** genera el registro de venta (`sale`), sus líneas (`sale_items`) con el precio y costo unitario congelados en ese instante,
-- **y** registra el pago correspondiente (`payments`),
-- **y** responde con el comprobante digital de la venta (HTTP 201) sin requerir sesión de caja abierta ni modificar el stock en inventario.
+### Escenario 1: Venta exitosa con un medio de pago y descuento de stock
+- **Dado** que el usuario está autenticado en su negocio y tiene productos en el carrito,
+- **cuando** confirma la venta pagada con un medio de pago (ej. efectivo),
+- **entonces** el servidor recalcula subtotales en `Decimal` sobre precios brutos (sin impuestos),
+- **y** registra de forma atómica la venta (`sale`), sus líneas (`sale_items`) congelando precio y costo, y el pago (`payments`),
+- **y** ejecuta la deducción atómica de stock en cada producto (`stock = stock - cantidad`),
+- **y** emite el comprobante de venta (HTTP 201).
 
-### Escenario 2: Venta con pago mixto (Efectivo + Transferencia/Tarjeta)
-- **Dado** una venta con total de \$1.000,
-- **cuando** el cliente abona \$400 en efectivo y \$600 con transferencia bancaria,
-- **entonces** el servidor valida que la suma de los pagos coincida exactamente con el total recalculado,
-- **y** almacena los dos registros de pago vinculados a la venta.
+### Escenario 2: Pago en efectivo con cálculo de vuelto en UI
+- **Dado** una venta con total de \$3.400,
+- **cuando** el cliente entrega un billete de \$5.000,
+- **entonces** la interfaz calcula y muestra en pantalla "Vuelto: \$1.600",
+- **y** al confirmar, envía al backend como pago en efectivo el importe neto exacto (\$3.400).
 
-### Escenario 3: Idempotencia ante reintentos de red
-- **Dado** que el cliente envía una venta con un identificador único `client_id` (UUID v4),
-- **y** la petición se procesó exitosamente pero la respuesta HTTP no llegó al cliente debido a un corte momentáneo,
-- **cuando** el cliente reintenta enviar la misma venta con idéntico `client_id`,
-- **entonces** el backend detecta la clave existente, no duplica el cobro ni registros de venta, y responde con la venta original registrada (HTTP 200/201 idempotente).
+### Escenario 3: Venta con pago mixto (Efectivo + Transferencia/Tarjeta)
+- **Dado** una venta total de \$1.000,
+- **cuando** el cliente abona \$400 en efectivo y \$600 con transferencia QR,
+- **entonces** el servidor valida que la suma de los pagos coincida exactamente con el total de la venta,
+- **y** almacena ambos registros de pago.
+
+### Escenario 4: Venta con stock insuficiente (no bloqueante)
+- **Dado** que un producto tiene stock = 2 y el cliente compra 3 unidades,
+- **cuando** se procesa la venta,
+- **entonces** según la regla de oro del mostrador (la venta nunca se rechaza), la venta se procesa con éxito y el stock del producto queda en -1.
+
+### Escenario 5: Idempotencia ante reintentos de red
+- **Dado** que el cliente emite la venta con un identificador único `client_id` (UUID v4) persistido en el estado del carrito,
+- **cuando** la respuesta de red falla y el cliente reintenta la misma venta con idéntico `client_id`,
+- **entonces** el backend responde la venta ya registrada sin duplicar registros ni volver a descontar inventario (HTTP 200/201 idempotente).
 
 ---
 
 ## 3. Reglas de Negocio
-- Cada línea de venta congela el `unit_price` y el `unit_cost` al momento de la venta para garantizar la fidelidad del cálculo de margen histórico.
-- Todos los cálculos monetarios se realizan en el servidor usando tipos `Decimal` / `numeric(12,2)`.
-- La suma de los montos de pago debe igualar exactamente al total de la venta.
-- No se requiere sesión de caja previa ni se descuenta inventario.
-
----
-
-## 4. Fuera de Alcance de esta Historia
-- Deducción de stock en tiempo real.
-- Bloqueo o validación de sesión de caja activa.
-- Anulación o devolución de venta desde la UI.
-- Emisión de factura fiscal electrónica e impresión térmica.
+- Toda venta congela `unit_price` y `unit_cost` en `sale_items`.
+- Precios brutos: sin desglose de impuestos en este MVP.
+- Venta irreversible en este lote: no hay anulación en UI ni notas de crédito; los errores de tipeo se verifican en pantalla antes de confirmar.

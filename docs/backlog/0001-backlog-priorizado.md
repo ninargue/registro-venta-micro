@@ -38,9 +38,9 @@ flowchart TD
 ```
 
 ### Leyenda de Colores
-- 🟦 **Azul (borde celeste):** Backend (`FastAPI` · Endpoints y Servicios)
-- 🟩 **Verde (borde esmeralda):** Base de Datos (`PostgreSQL` · Esquemas, Migraciones Alembic y RLS)
-- 🟪 **Morado (borde lila):** Frontend (`React / PWA` · Vistas y Componentes)
+- 🟩 Base de Datos (`PostgreSQL` · Esquemas, Migraciones Alembic y RLS)
+- 🟦 Backend (`FastAPI` · Endpoints y Servicios)
+- 🟪 Frontend (`React / PWA` · Vistas y Componentes)
 
 ---
 
@@ -59,16 +59,16 @@ flowchart TD
 
 | Ticket | Título | Capa | Talla | Riesgo | Justificación Técnica |
 |---|---|---|:---:|:---:|---|
-| **TICKET-01** | Auth & Emisión de Sesión Tenant | Backend | **M** | Medio | Integración con Supabase Auth y seteo de `SET LOCAL app.current_business_id`. |
-| **TICKET-02** | Pantalla Login & Token Storage | Frontend | **S** | Bajo | Formulario estándar con redirección reactiva. |
-| **TICKET-03** | Esquema Catálogo con RLS | Database | **S** | Bajo | Tabla `products` con migración Alembic y test RLS. |
-| **TICKET-04** | API REST Catálogo | Backend | **M** | Bajo | CRUD estándar con esquemas Pydantic `Decimal`. |
-| **TICKET-05** | Vista de Catálogo en PWA | Frontend | **M** | Bajo | Grilla táctil reactiva con buscador. |
-| **TICKET-06** | Esquema Ventas & Idempotencia RLS | Database | **M** | Medio | Tablas `sales`, `sale_items`, `payments` y clave única de idempotencia. |
-| **TICKET-07** | Servicio Venta Idempotente | Backend | **L** | Medio | Transacción ACID crítica: recálculo `Decimal`, desglose de pagos y respuesta idempotente. |
-| **TICKET-08** | Pantalla Mostrador & Cobro Multimedio | Frontend | **L** | Medio | UI táctil de carrito, modal de cobros combinados y generación de UUID v4. |
-| **TICKET-09** | Endpoint Reporte Diario de Margen | Backend | **M** | Bajo | Agregaciones SQL por fecha y medio de pago, cálculo de margen bruto. |
-| **TICKET-10** | Vista de Reporte Diario | Frontend | **S** | Bajo | Pantalla con KPIs visuales y desglose de recaudación. |
+| **TICKET-01** | Auth, Onboarding & Sesión Tenant | Backend | **M** | Medio | Supabase Auth, endpoint `/onboarding` para creación de comercio con `timezone` y RLS. |
+| **TICKET-02** | Pantalla Login & Onboarding en PWA | Frontend | **S** | Bajo | Formulario de credenciales con paso simple de bienvenida para usuario nuevo. |
+| **TICKET-03** | Esquema Catálogo con RLS y Stock | Database | **S** | Bajo | Tabla `products` con columnas `sale_price`, `cost_price` y `stock` (`numeric(12,2)`). |
+| **TICKET-04** | API REST Catálogo de Productos | Backend | **M** | Bajo | CRUD estándar con esquemas Pydantic `Decimal` (precios brutos sin impuestos). |
+| **TICKET-05** | Vista de Catálogo en PWA | Frontend | **M** | Bajo | Grilla táctil reactiva con buscador y stock visible. |
+| **TICKET-06** | Esquema Ventas & Idempotencia RLS | Database | **M** | Medio | Tablas `sales`, `sale_items`, `payments` y clave única de idempotencia `(business_id, client_id)`. |
+| **TICKET-07** | Servicio Venta Idempotente & Stock | Backend | **L** | Medio | Transacción ACID: recálculo `Decimal`, descuento atómico de stock (permite negativo) y respuesta idempotente. |
+| **TICKET-08** | Mostrador, Vuelto en Efectivo & Cobro | Frontend | **L** | Medio | UI táctil de carrito, calculador de vuelto en efectivo y UUID persistido en carrito. |
+| **TICKET-09** | Endpoint Reporte Diario en Hora Local | Backend | **M** | Bajo | Agregaciones SQL por fecha local (`timezone`), cálculo de margen bruto y protección división por cero. |
+| **TICKET-10** | Vista de Reporte Diario | Frontend | **S** | Bajo | Pantalla con KPIs visuales y desglose por medio de pago. |
 
 ---
 
@@ -77,16 +77,16 @@ flowchart TD
 ```
  ALTO  │
        │  [Quick Wins ⭐]               [Proyectos Clave]
-       │  ⭐ T01 (Auth Tenant)           T07 (Venta Idempotente BE)
-       │  ⭐ T03 (Esquema Catálogo)      T08 (Mostrador Multimedio FE)
-       │  ⭐ T09 (Reporte Diario BE)     T06 (Esquema Ventas RLS)
+       │  ⭐ T01 (Auth & Onboarding)     T07 (Venta Idempotente + Stock)
+       │  ⭐ T03 (Esquema Catálogo)      T08 (Mostrador con Vuelto FE)
+       │  ⭐ T09 (Reporte en Hora Local) T06 (Esquema Ventas RLS)
 IMPACTO│
        ├─────────────────────────────────────────────────────────────
        │  [Tareas Menores]              [Evaluar / Descartables]
-       │  T02 (Login UI FE)             (Stock dinámico - POST-MVP)
+       │  T02 (Login/Onboarding UI FE)  (Notas de crédito - POST-MVP)
        │  T04 (API Catálogo BE)         (Arqueos y sesiones - POST-MVP)
        │  T05 (Catálogo UI FE)          (IA Assistant - POST-MVP)
-       │  T10 (Reporte UI FE)
+       │  T10 (Reporte UI FE)           (Motor de impuestos - POST-MVP)
  BAJO  │
        └─────────────────────────────────────────────────────────────
           BAJA                        COMPLEJIDAD               ALTA

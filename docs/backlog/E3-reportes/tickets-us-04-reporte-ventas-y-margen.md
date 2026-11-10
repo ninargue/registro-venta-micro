@@ -1,16 +1,16 @@
-# Tickets Técnicos — US-04: Reporte Diario de Ventas y Margen Estimado
+# Tickets Técnicos — US-04: Reporte Diario de Ventas y Margen en Hora Local
 
 ---
 
-### TICKET-09: Endpoint de consolidado diario de ventas y margen en backend
+### TICKET-09: Endpoint de consolidado diario de ventas y margen con zona horaria
 - **Alcance / Capa:** Backend (`backend/app/modules/reports`)
 - **Talla:** `M` | **Riesgo:** Bajo
 - **Dependencias:** `TICKET-06`
-- **Descripción:** Implementar endpoint `GET /api/v1/reports/daily` que agrupe las ventas de la fecha actual para el `business_id` autenticado, calculando total facturado, desglose por medio de pago, costo total acumulado y margen bruto estimado.
+- **Descripción:** Implementar endpoint `GET /api/v1/reports/daily` que agrupe las ventas utilizando la zona horaria del comercio (`(created_at AT TIME ZONE b.timezone)::date = :fecha`) para el `business_id` autenticado, calculando total facturado, desglose por medio de pago, costo total acumulado y margen bruto estimado.
 - **Definición de Terminado (DoD):**
-  - [ ] Consulta SQL optimizada filtrada por `business_id` y fecha.
+  - [ ] Consulta SQL optimizada agrupando por fecha local del comercio.
   - [ ] Cálculo de costo de mercadería vendida sumando `quantity * unit_cost` de `sale_items`.
-  - [ ] Cálculo de margen bruto en `Decimal`: `total_ventas - total_costos`.
+  - [ ] Cálculo de margen bruto en `Decimal`: `total_ventas - total_costos` y rentabilidad protegida contra división por cero.
   - [ ] Tests de integración para días con ventas y días sin ventas (valores en cero sin nulos).
 
 ---

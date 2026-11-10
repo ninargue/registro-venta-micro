@@ -1,25 +1,26 @@
-# Tickets Técnicos — US-01: Autenticación y Acceso al Negocio
+# Tickets Técnicos — US-01: Autenticación, Onboarding y Acceso al Negocio
 
 ---
 
-### TICKET-01: Endpoint de autenticación y emisión de contexto de negocio
+### TICKET-01: Endpoint de autenticación, onboarding y contexto de negocio RLS
 - **Alcance / Capa:** Backend (`backend/app/modules/auth`)
 - **Talla:** `M` | **Riesgo:** Medio
 - **Dependencias:** Ninguna (base del sistema)
-- **Descripción:** Implementar el endpoint `POST /api/v1/auth/login` que valide credenciales con Supabase Auth, resuelva el `business_id` del usuario en la base de datos y emita el JWT con los claims de sesión.
+- **Descripción:** Implementar endpoints `POST /api/v1/auth/login` y `POST /api/v1/auth/onboarding`. Si el usuario no tiene comercio asignado tras autenticarse en Supabase Auth, `POST /api/v1/auth/onboarding` crea el registro en `businesses` (con nombre, `country` y `timezone`, ej. `America/Argentina/Buenos_Aires`) y lo asocia al usuario. Configurar middleware que inyecte `SET LOCAL app.current_business_id = '<uuid>'` en la sesión de base de datos.
 - **Definición de Terminado (DoD):**
-  - [ ] Ruta `/api/v1/auth/login` documentada en OpenAPI.
-  - [ ] Middleware que inyecta `business_id` en `request.state` y ejecuta `SET LOCAL app.current_business_id = '<uuid>'` en la sesión de base de datos.
-  - [ ] Tests de integración con credenciales válidas e inválidas.
+  - [ ] Rutas `/login` y `/onboarding` documentadas en OpenAPI.
+  - [ ] Columna `timezone` en tabla `businesses` con valor resuelto por país.
+  - [ ] Middleware que aplica RLS configurando `app.current_business_id`.
+  - [ ] Tests de integración de login y flujo de onboarding.
 
 ---
 
-### TICKET-02: Interfaz de Login y almacenamiento de sesión en cliente
+### TICKET-02: Interfaz de Login, Onboarding y almacenamiento de sesión
 - **Alcance / Capa:** Frontend (`frontend/src/app`)
 - **Talla:** `S` | **Riesgo:** Bajo
 - **Dependencias:** `TICKET-01`
-- **Descripción:** Crear la pantalla de login en la PWA con formulario de email y contraseña, guardando el token y `business_id` en almacenamiento local seguro (`localStorage` / estado reactivo).
+- **Descripción:** Crear la pantalla de login en la PWA con formulario de credenciales. Si el usuario no tiene comercio asignado, dirigir a pantalla simple de bienvenida/onboarding solicitando nombre de negocio y país, persistiendo el token y `business_id` en almacenamiento local seguro (`localStorage`).
 - **Definición de Terminado (DoD):**
   - [ ] Formulario accesible con validación de campos obligatorios.
-  - [ ] Manejo de errores de credenciales (HTTP 401).
-  - [ ] Redirección automática al mostrador al autenticar con éxito.
+  - [ ] Pantalla/modal de onboarding para primer acceso.
+  - [ ] Redirección automática al mostrador al completar la autenticación.

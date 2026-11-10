@@ -1,4 +1,4 @@
-# Tickets Técnicos — US-03: Registro de Venta con Múltiples Medios de Pago e Idempotencia
+# Tickets Técnicos — US-03: Registro de Venta con Múltiples Medios de Pago, Stock e Idempotencia
 
 ---
 
@@ -14,26 +14,27 @@
 
 ---
 
-### TICKET-07: Servicio transaccional e idempotente de ventas en backend
+### TICKET-07: Servicio transaccional e idempotente de ventas con descuento de stock
 - **Alcance / Capa:** Backend (`backend/app/modules/sales`)
 - **Talla:** `L` | **Riesgo:** Medio
 - **Dependencias:** `TICKET-06`
-- **Descripción:** Implementar endpoint `POST /api/v1/sales` que reciba `client_id`, lista de ítems (`product_id`, `quantity`) y desglose de `payments`. Valida cálculo de totales en `Decimal` en el servidor, graba venta, líneas y pagos en una sola transacción atómica sin modificar stock ni requerir sesión de caja. Si el `client_id` ya existe, responde la venta registrada de forma idempotente.
+- **Descripción:** Implementar endpoint `POST /api/v1/sales` que reciba `client_id`, lista de ítems (`product_id`, `quantity`) y desglose de `payments`. Valida totales en `Decimal` (precios brutos sin impuestos), graba venta, líneas y pagos en una sola transacción atómica, y descuenta el stock de cada producto (`stock = stock - cantidad`) sin bloquear si el stock queda en negativo. Si el `client_id` ya existe, responde de forma idempotente sin re-descontar stock.
 - **Definición de Terminado (DoD):**
-  - [ ] Transacción ACID con rollback garantizado ante cualquier excepción.
-  - [ ] Recálculo estricto de subtotales en servidor usando `Decimal`.
-  - [ ] Validación de coincidencia exacta entre monto total y suma de medios de pago.
+  - [ ] Transacción ACID con rollback garantizado ante excepciones.
+  - [ ] Deducción atómica de inventario por ítem vendido.
+  - [ ] Permite venta con stock negativo transitorio sin rechazar la operación.
+  - [ ] Recálculo estricto de totales en servidor usando `Decimal`.
   - [ ] Tests de idempotencia ante peticiones repetidas con idéntico `client_id`.
 
 ---
 
-### TICKET-08: Pantalla de mostrador, carrito y cobro multimedio en frontend
+### TICKET-08: Pantalla de mostrador, carrito y cobro con vuelto en efectivo
 - **Alcance / Capa:** Frontend (`frontend/src/app`)
 - **Talla:** `L` | **Riesgo:** Medio
 - **Dependencias:** `TICKET-05`, `TICKET-07`
-- **Descripción:** Desarrollar la interfaz táctil de mostrador en la PWA: armado ágil del carrito, visualización de total, selección de medios de pago combinables (efectivo, tarjeta, transferencia/QR) y emisión directa de la venta enviando un UUID v4 como `client_id`.
+- **Descripción:** Desarrollar la interfaz táctil de mostrador en la PWA: armado ágil del carrito, visualización de total anunciado, selección de medios de pago combinables (efectivo con calculador de vuelto en cliente, tarjeta, transferencia/QR) y emisión directa de la venta enviando un UUID v4 como `client_id` persistido en el estado del carrito.
 - **Definición de Terminado (DoD):**
   - [ ] Interfaz táctil optimizada para celular.
-  - [ ] Generación automática de UUID v4 para cada intento de venta.
-  - [ ] Modal de cobro con validación de montos antes del envío.
+  - [ ] Calculador de vuelto en pagos en efectivo (ingreso de monto recibido y visualización de vuelto).
+  - [ ] Generación automática y persistencia de UUID v4 por cada venta en preparación.
   - [ ] Ticket digital en pantalla con resumen de la venta completada.

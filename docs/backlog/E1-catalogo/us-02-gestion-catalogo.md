@@ -1,45 +1,37 @@
-# US-02: Carga y Gestión Básica de Catálogo
+# US-02: Carga y Gestión Básica de Catálogo con Stock
 
 **Épica:** E1-catalogo  
-**Estado:** Lista para refinamiento técnico  
+**Estado:** Consolidada v0.2  
 
 ---
 
 ## 1. Descripción
 **Como** dueño del micronegocio,  
-**quiero** dar de alta y editar productos indicando nombre, precio de venta, costo y stock inicial,  
-**para** tener disponible los productos vendibles en el mostrador y permitir el cálculo de inventario y margen.
+**quiero** dar de alta y editar productos indicando código, nombre, precio de venta, costo y stock inicial,  
+**para** tener el catálogo disponible en mostrador y permitir el control de inventario y margen.
 
 ---
 
 ## 2. Criterios de Aceptación (Given / When / Then)
 
-### Escenario 1: Creación de un nuevo producto
+### Escenario 1: Alta de un nuevo producto
 - **Dado** que el dueño está autenticado en su negocio,
 - **cuando** envía los datos de un nuevo producto (código opcional, nombre obligatorio, precio de venta > 0, costo >= 0, stock inicial >= 0),
-- **entonces** el producto se almacena asociado al `business_id`,
-- **y** se genera el registro correspondiente en la tabla de productos con los valores monetarios en `Decimal`.
+- **entonces** el producto se almacena asociado al `business_id` en la tabla `products`,
+- **y** los valores monetarios y de stock se guardan con precisión `Decimal` (`numeric(12,2)`).
 
 ### Escenario 2: Listado y búsqueda en catálogo
-- **Dado** que existen productos registrados en el negocio,
-- **cuando** el usuario solicita el catálogo o busca por coincidencia de texto en el nombre,
-- **entonces** el sistema retorna la lista ordenada con stock disponible y precios actuales.
+- **Dado** que existen productos registrados,
+- **cuando** se consulta el catálogo o se busca por texto en el nombre o SKU,
+- **entonces** el sistema retorna los productos ordenados con su precio de venta y stock actual.
 
-### Escenario 3: Edición de precio o costo
+### Escenario 3: Modificación de producto
 - **Dado** un producto existente,
-- **cuando** el dueño actualiza su precio de venta o costo de compra,
-- **entonces** el producto se actualiza para futuras ventas, sin afectar retrospectivamente los precios ni costos históricos de ventas ya concluidas.
+- **cuando** el dueño edita su precio de venta, costo o stock,
+- **entonces** los valores se actualizan para transacciones futuras sin afectar los precios ni costos congelados en ventas pasadas.
 
 ---
 
 ## 3. Reglas de Negocio
-- Los precios y costos deben ser números positivos expresados con dos decimales (`Decimal`).
-- El nombre del producto es obligatorio y no puede quedar vacío.
-- Los productos eliminados o desactivados deben manejarse de forma que no rompan la integridad referencial con ventas pasadas.
-
----
-
-## 4. Fuera de Alcance de esta Historia
-- Carga masiva por archivo Excel/CSV en este lote.
-- Imágenes de producto.
-- Gestión de variantes complejas (talles, colores).
+- Los precios, costos y stock inicial son valores `Decimal`. Precios brutos sin desglose impositivo.
+- Los productos eliminados o desactivados preservan la integridad referencial con el histórico de ventas.
