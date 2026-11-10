@@ -9,21 +9,29 @@
 ## 1. Grafo de Dependencias Técnicas
 
 ```mermaid
-flowchart TD
-    classDef default fill:#1e293b,stroke:#38bdf8,stroke-width:2px,color:#ffffff,font-size:14px;
-    classDef db fill:#064e3b,stroke:#34d399,stroke-width:2px,color:#ffffff,font-size:14px;
-    classDef fe fill:#581c87,stroke:#c084fc,stroke-width:2px,color:#ffffff,font-size:14px;
+graph TD
+    classDef be fill:#0284c7,stroke:#0369a1,stroke-width:2px,color:#ffffff;
+    classDef fe fill:#7c3aed,stroke:#6d28d9,stroke-width:2px,color:#ffffff;
+    classDef db fill:#059669,stroke:#047857,stroke-width:2px,color:#ffffff;
 
-    T01["T01: Auth & Sesión Tenant"]
-    T02["T02: Login UI & Storage"]:::fe
-    T03["T03: BD Catálogo & RLS"]:::db
-    T04["T04: API Catálogo REST"]
-    T05["T05: Vista Catálogo"]:::fe
-    T06["T06: BD Ventas & RLS"]:::db
-    T07["T07: Servicio Venta Idempotente"]
-    T08["T08: Mostrador & Cobro Multimedio"]:::fe
-    T09["T09: Endpoint Reporte Diario"]
-    T10["T10: Vista Reporte Diario"]:::fe
+    subgraph BE ["Backend (FastAPI)"]
+        T01["TICKET-01: Auth & Tenant Session"]:::be
+        T04["TICKET-04: API Catálogo REST"]:::be
+        T07["TICKET-07: Servicio Venta Idempotente"]:::be
+        T09["TICKET-09: Endpoint Reporte Diario"]:::be
+    end
+
+    subgraph DB ["Base de Datos (PostgreSQL / RLS)"]
+        T03["TICKET-03: Esquema Catálogo & RLS"]:::db
+        T06["TICKET-06: Esquema Ventas & Idempotencia"]:::db
+    end
+
+    subgraph FE ["Frontend (React / PWA)"]
+        T02["TICKET-02: Login UI & Storage"]:::fe
+        T05["TICKET-05: Vista Catálogo"]:::fe
+        T08["TICKET-08: Mostrador & Cobro Multimedio"]:::fe
+        T10["TICKET-10: Vista Reporte Diario"]:::fe
+    end
 
     T01 --> T02
     T01 --> T03
