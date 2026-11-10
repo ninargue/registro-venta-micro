@@ -3,6 +3,7 @@
 ---
 
 ### TICKET-01: Endpoint de autenticación, onboarding y contexto de negocio RLS
+- **Issue GitHub:** [#39](https://github.com/ninargue/registro-venta-micro/issues/39)
 - **Alcance / Capa:** Backend (`backend/app/modules/auth`)
 - **Talla:** `M` | **Riesgo:** Medio
 - **Dependencias:** Ninguna (base del sistema)
@@ -16,6 +17,7 @@
 ---
 
 ### TICKET-02: Interfaz de Login, Onboarding y almacenamiento de sesión
+- **Issue GitHub:** [#40](https://github.com/ninargue/registro-venta-micro/issues/40)
 - **Alcance / Capa:** Frontend (`frontend/src/app`)
 - **Talla:** `S` | **Riesgo:** Bajo
 - **Dependencias:** `TICKET-01`
