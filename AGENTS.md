@@ -85,6 +85,7 @@ PRs hacia `master` (`release/*`, `hotfix/*`) → **Create a merge commit**.
 
 - Todo cambio parte de un issue y una rama desde `develop` actualizado.
 - PR en borrador al primer commit; cambiar a "Ready for review" tras autorrevisión.
+- **Uso estricto del template de Pull Request:** Todo PR debe crearse usando obligatoriamente el template oficial (`.github/pull_request_template.md`, o `.github/PULL_REQUEST_TEMPLATE/release.md` para releases y hotfixes hacia `master`). Completar todas sus secciones requeridas (Descripción, Issue relacionado `Closes #...`, Tipo de cambio, Cambios realizados, Rama base y Checklist). Queda terminantemente prohibido abrir PRs con cuerpo vacío o texto libre sin template.
 - La rama debe estar actualizada con su destino antes del merge (exigido por las protecciones de `develop` y `master`).
 - Releases y hotfixes terminan con tag `vX.Y.Z` + release en GitHub con notas del changelog.
 - El workflow **Backport PR** abre automáticamente el PR de backport a `develop`; hay que cerrarlo y reabrirlo para disparar el check obligatorio.
@@ -92,6 +93,7 @@ PRs hacia `master` (`release/*`, `hotfix/*`) → **Create a merge commit**.
 ## Reglas para el agente
 
 - Todo issue se trabaja de principio a fin con el skill `lifecycle-dev`: preparar rama, worktree y workspace; desarrollar con commits atómicos; cerrar el desarrollo y, al final, mergear y limpiar.
+- **Creación obligatoria de PR con template:** Al abrir o actualizar un PR desde CLI (`gh pr create` / `gh pr edit`), usar siempre el template oficial mediante `--body-file` o completando rigurosamente cada campo de `.github/pull_request_template.md`.
 - No desactivar reglas de lint ni de tipos para que pase un check.
 - Agregar dependencias con `uv add` (backend) o `npm install` (frontend/raíz), nunca editando los manifiestos a mano.
 - Antes de afirmar qué soporta una plataforma (Vercel, Supabase, GitHub) o qué versión de una action existe, consultar la fuente y citarla.
