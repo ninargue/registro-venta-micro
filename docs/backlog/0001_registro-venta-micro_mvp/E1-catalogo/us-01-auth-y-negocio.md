@@ -35,6 +35,6 @@
 ---
 
 ## 3. Reglas de Negocio
-- Cada usuario opera un único comercio en este lote.
+- Cada usuario opera un único comercio en este lote (usuario único: Dueño del micronegocio; empleados y roles adicionales quedan fuera de scope).
 - El `business_id` se extrae únicamente del token o contexto seguro en backend, jamás del body de las peticiones.
 - La zona horaria del comercio se infiere del país registrado durante el onboarding.

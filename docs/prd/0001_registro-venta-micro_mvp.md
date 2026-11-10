@@ -55,8 +55,8 @@ Democratizar el punto de venta para micronegocios mediante una aplicación web p
 
 ### Épica 2: Venta Transaccional e Idempotente (`E2-ventas`)
 - **US-03: Registro de Venta con Múltiples Medios de Pago y Stock**
-  - El cajero selecciona productos del catálogo armando el carrito y totaliza la venta.
-  - El cajero anuncia el monto total al comprador y registra los medios de pago (efectivo, tarjeta, transferencia/QR).
+  - El dueño selecciona productos del catálogo armando el carrito en mostrador y totaliza la venta.
+  - El dueño anuncia el monto total al comprador y registra los medios de pago (efectivo, tarjeta, transferencia/QR).
   - **Cálculo de vuelto en efectivo:** En pagos en efectivo, la interfaz permite ingresar el "Monto recibido" y calcula de forma inmediata el "Vuelto al cliente". El importe neto enviado al backend coincide exactamente con la venta.
   - **Precios brutos:** El sistema opera con precios finales brutos (sin desglose de impuestos en este MVP).
   - El cliente emite la venta con un `client_id` (UUID v4) persistido en el carrito para garantizar idempotencia incluso tras recargas de página.
@@ -92,6 +92,7 @@ Democratizar el punto de venta para micronegocios mediante una aplicación web p
 - ❌ Sin arqueo de caja (ciego ni estándar).
 - ❌ Sin anulaciones de venta / notas de crédito en interfaz (errores se corrigen en mostrador antes de confirmar).
 - ❌ Sin motor impositivo o cálculo de impuestos (IVA/tasas).
+- ❌ Sin gestión de empleados, cajeros ni roles diferenciados (usuario único: Dueño del comercio).
 - ❌ Sin asistente de IA en lenguaje natural.
 - ❌ Sin multi-negocio dinámico ni invitaciones por correo.
 - ❌ Sin sincronización offline compleja multi-pestaña.

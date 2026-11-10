@@ -6,7 +6,7 @@
 ---
 
 ## 1. Descripción
-**Como** cajero del micronegocio,  
+**Como** dueño del micronegocio en el mostrador,  
 **quiero** totalizar la compra de productos, cobrar admitiendo medios de pago combinados con cálculo de vuelto en efectivo y emitir la venta directamente,  
 **para** completar transacciones en pocos toques, actualizar el stock de forma atómica y evitar ventas duplicadas ante reintentos.
 

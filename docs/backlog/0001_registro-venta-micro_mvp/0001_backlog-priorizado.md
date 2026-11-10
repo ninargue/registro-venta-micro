@@ -88,6 +88,7 @@ IMPACTO│
        │  T04 (API Catálogo BE)         (Arqueos y sesiones - POST-MVP)
        │  T05 (Catálogo UI FE)          (IA Assistant - POST-MVP)
        │  T10 (Reporte UI FE)           (Motor de impuestos - POST-MVP)
+       │                                (Gestión empleados/roles - POST-MVP)
  BAJO  │
        └─────────────────────────────────────────────────────────────
           BAJA                        COMPLEJIDAD               ALTA

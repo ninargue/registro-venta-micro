@@ -19,13 +19,12 @@ Para este lote, el alcance se mantiene limpio: no hay aperturas ni cierres de tu
 
 ## 2. Usuarios
 
-- **Cajero / Vendedor:**
-  - Registra ventas seleccionando productos del catálogo y cobrando con uno o varios medios de pago, con cálculo de vuelto en efectivo.
-  - No requiere pasos previos de apertura ni cierre de caja: cobra de forma directa.
-- **Dueño del negocio:**
-  - Accede a su negocio mediante credenciales seguras (o crea su comercio en el onboarding inicial).
+- **Dueño del micronegocio (Usuario único del MVP):**
+  - Actor único en esta versión: atiende el mostrador, administra su comercio y revisa los números. No existen roles diferenciados ni gestión de empleados/cajeros.
+  - Accede mediante credenciales seguras (o crea su comercio en el onboarding inicial con país y zona horaria).
   - Administra el catálogo básico (productos con precio de venta, costo de referencia y stock).
-  - Consulta al cierre del día el reporte de facturación total por medio de pago y el margen bruto generado en su zona horaria local.
+  - Registra las ventas directamente en el mostrador seleccionando productos, aplicando pagos multimedio y calculando vuelto en efectivo.
+  - Consulta al cierre del día el reporte de facturación total por medio de pago y el margen bruto en su zona horaria local.
 
 ---
 
@@ -74,6 +73,7 @@ Una aplicación web progresiva (PWA) minimalista, robusta y multitenant:
 | **Arqueo de caja (ciego o estándar)** | El control se enfoca en el reporte de recaudación por medio de pago. |
 | **Anulaciones de venta / Notas de crédito y débito** | Contablemente las ventas se ajustan por notas de crédito o débito, lo cual agrega complejidad fiscal y de estados. Los errores de tipeo se corrigen antes de registrar el cobro en mostrador. |
 | **Motor impositivo / cálculo de impuestos (IVA)** | Opera con precios brutos finales, alineado a la operativa simple del micronegocio. |
+| **Gestión de empleados, cajeros y roles múltiples** | Simplificado a un usuario único (Dueño del micronegocio). No hay altas de empleados, roles `cashier`/`admin`, ni perfiles diferenciados en este MVP. |
 | **Asistente en lenguaje natural con IA** | Funcionalidad auxiliar post-MVP. |
 | **Cambio dinámico multi-negocio e invitaciones** | Un solo negocio activo por usuario en este lote. |
 | **Detección de reuso de refresh token rotativo** | Uso de autenticación y refresco estándar de Supabase. |
