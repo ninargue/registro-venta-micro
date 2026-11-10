@@ -58,18 +58,18 @@ flowchart TD
 
 ## 3. T-shirt Sizing y Matriz de Riesgo
 
-| Ticket | Título | Capa | Talla | Riesgo | Justificación Técnica |
-|---|---|---|:---:|:---:|---|
-| [**TICKET-01**](E1-catalogo/tickets-us-01-auth-y-negocio.md) | Auth, Onboarding & Sesión Tenant | Backend | **M** | Medio | Supabase Auth, endpoint `/onboarding` para creación de comercio con `timezone` y RLS. |
-| [**TICKET-02**](E1-catalogo/tickets-us-01-auth-y-negocio.md) | Pantalla Login & Onboarding en PWA | Frontend | **S** | Bajo | Formulario de credenciales con paso simple de bienvenida para usuario nuevo. |
-| [**TICKET-03**](E1-catalogo/tickets-us-02-gestion-catalogo.md) | Esquema Catálogo con RLS y Stock | Database | **S** | Bajo | Tabla `products` con columnas `sale_price`, `cost_price` y `stock` (`numeric(12,2)`). |
-| [**TICKET-04**](E1-catalogo/tickets-us-02-gestion-catalogo.md) | API REST Catálogo de Productos | Backend | **M** | Bajo | CRUD estándar con esquemas Pydantic `Decimal` (precios brutos sin impuestos). |
-| [**TICKET-05**](E1-catalogo/tickets-us-02-gestion-catalogo.md) | Vista de Catálogo en PWA | Frontend | **M** | Bajo | Grilla táctil reactiva con buscador y stock visible. |
-| [**TICKET-06**](E2-ventas/tickets-us-03-venta-multimedio-idempotente.md) | Esquema Ventas & Idempotencia RLS | Database | **M** | Medio | Tablas `sales`, `sale_items`, `payments` y clave única de idempotencia `(business_id, client_id)`. |
-| [**TICKET-07**](E2-ventas/tickets-us-03-venta-multimedio-idempotente.md) | Servicio Venta Idempotente & Stock | Backend | **L** | Medio | Transacción ACID: recálculo `Decimal`, descuento atómico de stock (permite negativo) y respuesta idempotente. |
-| [**TICKET-08**](E2-ventas/tickets-us-03-venta-multimedio-idempotente.md) | Mostrador, Vuelto en Efectivo & Cobro | Frontend | **L** | Medio | UI táctil de carrito, calculador de vuelto en efectivo y UUID persistido en carrito. |
-| [**TICKET-09**](E3-reportes/tickets-us-04-reporte-ventas-y-margen.md) | Endpoint Reporte Diario en Hora Local | Backend | **M** | Bajo | Agregaciones SQL por fecha local (`timezone`), cálculo de margen bruto y protección división por cero. |
-| [**TICKET-10**](E3-reportes/tickets-us-04-reporte-ventas-y-margen.md) | Vista de Reporte Diario | Frontend | **S** | Bajo | Pantalla con KPIs visuales y desglose por medio de pago. |
+| Ticket | Issue GitHub | Título | Capa | Talla | Riesgo | Justificación Técnica |
+|---|:---:|---|---|:---:|:---:|---|
+| [**TICKET-01**](E1-catalogo/tickets-us-01-auth-y-negocio.md) | [#39](https://github.com/ninargue/registro-venta-micro/issues/39) | Auth, Onboarding & Sesión Tenant | Backend | **M** | Medio | Supabase Auth, endpoint `/onboarding` para creación de comercio con `timezone` y RLS. |
+| [**TICKET-02**](E1-catalogo/tickets-us-01-auth-y-negocio.md) | [#40](https://github.com/ninargue/registro-venta-micro/issues/40) | Pantalla Login & Onboarding en PWA | Frontend | **S** | Bajo | Formulario de credenciales con paso simple de bienvenida para usuario nuevo. |
+| [**TICKET-03**](E1-catalogo/tickets-us-02-gestion-catalogo.md) | [#42](https://github.com/ninargue/registro-venta-micro/issues/42) | Esquema Catálogo con RLS y Stock | Database | **S** | Bajo | Tabla `products` con columnas `sale_price`, `cost_price` y `stock` (`numeric(12,2)`). |
+| [**TICKET-04**](E1-catalogo/tickets-us-02-gestion-catalogo.md) | [#43](https://github.com/ninargue/registro-venta-micro/issues/43) | API REST Catálogo de Productos | Backend | **M** | Bajo | CRUD estándar con esquemas Pydantic `Decimal` (precios brutos sin impuestos). |
+| [**TICKET-05**](E1-catalogo/tickets-us-02-gestion-catalogo.md) | [#44](https://github.com/ninargue/registro-venta-micro/issues/44) | Vista de Catálogo en PWA | Frontend | **M** | Bajo | Grilla táctil reactiva con buscador y stock visible. |
+| [**TICKET-06**](E2-ventas/tickets-us-03-venta-multimedio-idempotente.md) | [#46](https://github.com/ninargue/registro-venta-micro/issues/46) | Esquema Ventas & Idempotencia RLS | Database | **M** | Medio | Tablas `sales`, `sale_items`, `payments` y clave única de idempotencia `(business_id, client_id)`. |
+| [**TICKET-07**](E2-ventas/tickets-us-03-venta-multimedio-idempotente.md) | [#47](https://github.com/ninargue/registro-venta-micro/issues/47) | Servicio Venta Idempotente & Stock | Backend | **L** | Medio | Transacción ACID: recálculo `Decimal`, descuento atómico de stock (permite negativo) y respuesta idempotente. |
+| [**TICKET-08**](E2-ventas/tickets-us-03-venta-multimedio-idempotente.md) | [#48](https://github.com/ninargue/registro-venta-micro/issues/48) | Mostrador, Vuelto en Efectivo & Cobro | Frontend | **L** | Medio | UI táctil de carrito, calculador de vuelto en efectivo y UUID persistido en carrito. |
+| [**TICKET-09**](E3-reportes/tickets-us-04-reporte-ventas-y-margen.md) | [#50](https://github.com/ninargue/registro-venta-micro/issues/50) | Endpoint Reporte Diario en Hora Local | Backend | **M** | Bajo | Agregaciones SQL por fecha local (`timezone`), cálculo de margen bruto y protección división por cero. |
+| [**TICKET-10**](E3-reportes/tickets-us-04-reporte-ventas-y-margen.md) | [#51](https://github.com/ninargue/registro-venta-micro/issues/51) | Vista de Reporte Diario | Frontend | **S** | Bajo | Pantalla con KPIs visuales y desglose por medio de pago. |
 
 ---
 

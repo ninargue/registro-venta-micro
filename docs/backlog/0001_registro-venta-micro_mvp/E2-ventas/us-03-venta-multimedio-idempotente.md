@@ -2,6 +2,7 @@
 
 **Épica:** E2-ventas  
 **Estado:** Consolidada v0.2  
+**GitHub Issue:** [#45](https://github.com/ninargue/registro-venta-micro/issues/45)  
 
 ---
 

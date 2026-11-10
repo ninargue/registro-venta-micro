@@ -2,6 +2,7 @@
 
 **Épica:** E1-catalogo  
 **Estado:** Consolidada v0.2  
+**GitHub Issue:** [#41](https://github.com/ninargue/registro-venta-micro/issues/41)  
 
 ---
 

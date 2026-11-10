@@ -3,6 +3,7 @@
 ---
 
 ### TICKET-09: Endpoint de consolidado diario de ventas y margen con zona horaria
+- **Issue GitHub:** [#50](https://github.com/ninargue/registro-venta-micro/issues/50)
 - **Alcance / Capa:** Backend (`backend/app/modules/reports`)
 - **Talla:** `M` | **Riesgo:** Bajo
 - **Dependencias:** `TICKET-06`
@@ -16,6 +17,7 @@
 ---
 
 ### TICKET-10: Vista de reporte diario y KPIs de ganancia en frontend
+- **Issue GitHub:** [#51](https://github.com/ninargue/registro-venta-micro/issues/51)
 - **Alcance / Capa:** Frontend (`frontend/src/app`)
 - **Talla:** `S` | **Riesgo:** Bajo
 - **Dependencias:** `TICKET-09`

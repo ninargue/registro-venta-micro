@@ -3,6 +3,7 @@
 ---
 
 ### TICKET-06: Esquema de base de datos de ventas, líneas y pagos con RLS
+- **Issue GitHub:** [#46](https://github.com/ninargue/registro-venta-micro/issues/46)
 - **Alcance / Capa:** Base de datos (`backend/migrations`, `supabase`)
 - **Talla:** `M` | **Riesgo:** Medio
 - **Dependencias:** `TICKET-03`
@@ -15,6 +16,7 @@
 ---
 
 ### TICKET-07: Servicio transaccional e idempotente de ventas con descuento de stock
+- **Issue GitHub:** [#47](https://github.com/ninargue/registro-venta-micro/issues/47)
 - **Alcance / Capa:** Backend (`backend/app/modules/sales`)
 - **Talla:** `L` | **Riesgo:** Medio
 - **Dependencias:** `TICKET-06`
@@ -29,6 +31,7 @@
 ---
 
 ### TICKET-08: Pantalla de mostrador, carrito y cobro con vuelto en efectivo
+- **Issue GitHub:** [#48](https://github.com/ninargue/registro-venta-micro/issues/48)
 - **Alcance / Capa:** Frontend (`frontend/src/app`)
 - **Talla:** `L` | **Riesgo:** Medio
 - **Dependencias:** `TICKET-05`, `TICKET-07`

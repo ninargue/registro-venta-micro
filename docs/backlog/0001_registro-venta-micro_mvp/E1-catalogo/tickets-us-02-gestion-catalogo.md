@@ -3,6 +3,7 @@
 ---
 
 ### TICKET-03: Esquema de base de datos de productos con políticas RLS y stock
+- **Issue GitHub:** [#42](https://github.com/ninargue/registro-venta-micro/issues/42)
 - **Alcance / Capa:** Base de datos (`backend/migrations`, `supabase`)
 - **Talla:** `S` | **Riesgo:** Bajo
 - **Dependencias:** `TICKET-01`
@@ -15,6 +16,7 @@
 ---
 
 ### TICKET-04: API REST de Catálogo de Productos con Stock
+- **Issue GitHub:** [#43](https://github.com/ninargue/registro-venta-micro/issues/43)
 - **Alcance / Capa:** Backend (`backend/app/modules/catalog`)
 - **Talla:** `M` | **Riesgo:** Bajo
 - **Dependencias:** `TICKET-03`
@@ -27,6 +29,7 @@
 ---
 
 ### TICKET-05: Vista de administración y selector de productos en frontend
+- **Issue GitHub:** [#44](https://github.com/ninargue/registro-venta-micro/issues/44)
 - **Alcance / Capa:** Frontend (`frontend/src/app`)
 - **Talla:** `M` | **Riesgo:** Bajo
 - **Dependencias:** `TICKET-04`
