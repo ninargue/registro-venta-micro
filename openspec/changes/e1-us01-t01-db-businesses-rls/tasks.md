@@ -1,8 +1,8 @@
 ## 1. Tests DB-TDD en ROJO
 
-- [ ] 1.1 Crear archivo de pruebas de esquema para `businesses` y `business_users` (validación de nulabilidad, tipos y constraints) en `backend/tests/integration/test_db_businesses_schema.py`
-- [ ] 1.2 Crear pruebas de aislamiento RLS verificando que `app.current_business_id` aísla los registros entre negocios
-- [ ] 1.3 Ejecutar tests y confirmar el estado en ROJO por ausencia de las tablas
+- [x] 1.1 Crear archivo de pruebas de esquema para `businesses` y `business_users` (validación de nulabilidad, tipos y constraints) en `backend/tests/integration/test_db_businesses.py`
+- [x] 1.2 Crear pruebas de aislamiento RLS verificando que `app.current_business_id` aísla los registros entre negocios
+- [x] 1.3 Ejecutar tests y confirmar el estado en ROJO por ausencia de las tablas
 
 ## 2. Modelos SQLAlchemy y Migración Alembic
 

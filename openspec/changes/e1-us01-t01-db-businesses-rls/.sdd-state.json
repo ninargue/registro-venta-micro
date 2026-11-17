@@ -1,0 +1,22 @@
+{
+  "db_test_fingerprint": {
+    "frozenAt": "2026-11-17T01:39:37.743Z",
+    "testsDir": "C:\\Users\\Armenta\\Documents\\Repositories\\wt-39-auth-onboarding-rls\\backend\\tests",
+    "fileCount": 6,
+    "files": {
+      "__pycache__/conftest.cpython-314-pytest-9.2.0.pyc": "5fdfa18f5fe7bb0509955bbecf22a55cb093fd64b51b79e975e36e655fb3bc6b",
+      "conftest.py": "d121fe4ee94e02398b900c9578c6782f33c573fb2cd8fe9e6a32d4fb3ff5d4d7",
+      "integration/__pycache__/test_db_businesses.cpython-314-pytest-9.2.0.pyc": "c94a98bc2b41ecde3e60efd47ce383ef18ec3eca9a114c70a58a8a8ac17c26b4",
+      "integration/test_db_businesses.py": "dff5c862b6b7b7d397563ee2f2466baf72ebc15fb5fa05e63797ad613643e492",
+      "unit/__pycache__/test_health.cpython-314-pytest-9.2.0.pyc": "9c5a1ba4810fa4c648e50deb0a40f2e80736b0d38fbd8c15f95ef2b2c75868d4",
+      "unit/test_health.py": "c4d4e5c25bd5dbb99976e8a93f02971712e1afb6ed42cc8da876b0e220935944"
+    },
+    "history": [
+      {
+        "event": "freeze",
+        "at": "2026-11-17T01:39:37.754Z",
+        "fileCount": 6
+      }
+    ]
+  }
+}
