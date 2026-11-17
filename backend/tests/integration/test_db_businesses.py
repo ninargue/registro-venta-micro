@@ -178,14 +178,17 @@ async def test_rls_isolation_by_session_variable(db_session: AsyncSession) -> No
             {"b1": b1, "b2": b2},
         )
 
+        # Switch to non-superuser role so PostgreSQL enforces RLS
+        await db_session.execute(text("SET LOCAL ROLE authenticated;"))
+
         # Set tenant context to b1
-        await db_session.execute(text(f"SET LOCAL app.current_business_id = '{b1}'"))
-        result = await db_session.execute(text("SELECT id FROM businesses"))
+        await db_session.execute(text(f"SET LOCAL app.current_business_id = '{b1}';"))
+        result = await db_session.execute(text("SELECT id FROM businesses;"))
         ids = [str(r[0]) for r in result.fetchall()]
         assert b1 in ids
         assert b2 not in ids
 
         # No tenant context set -> should return empty under RLS
-        await db_session.execute(text("SET LOCAL app.current_business_id = ''"))
-        result_empty = await db_session.execute(text("SELECT id FROM businesses"))
+        await db_session.execute(text("SET LOCAL app.current_business_id = '';"))
+        result_empty = await db_session.execute(text("SELECT id FROM businesses;"))
         assert len(result_empty.fetchall()) == 0

@@ -17,6 +17,6 @@
 
 ## 4. Verificación en VERDE y Roundtrip
 
-- [ ] 4.1 Aplicar migración con `uv run alembic upgrade head` en la base de datos local
-- [ ] 4.2 Ejecutar suite de pruebas DB-TDD y verificar transición a VERDE
-- [ ] 4.3 Validar reversibilidad con `alembic downgrade -1` y re-aplicar `alembic upgrade head`
+- [x] 4.1 Aplicar migración con `uv run alembic upgrade head` en la base de datos local
+- [x] 4.2 Ejecutar suite de pruebas DB-TDD y verificar transición a VERDE
+- [x] 4.3 Validar reversibilidad con `alembic downgrade -1` y re-aplicar `alembic upgrade head`

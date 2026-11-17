@@ -125,21 +125,29 @@ def upgrade() -> None:
         """
     )
 
+    # 6. Permisos DCL para roles de aplicación Supabase
+    op.execute("GRANT ALL ON TABLE businesses TO authenticated, service_role;")
+    op.execute("GRANT ALL ON TABLE business_users TO authenticated, service_role;")
+
 
 def downgrade() -> None:
-    # 1. Eliminar políticas RLS
+    # 1. Revocar permisos
+    op.execute("REVOKE ALL ON TABLE business_users FROM authenticated, service_role;")
+    op.execute("REVOKE ALL ON TABLE businesses FROM authenticated, service_role;")
+
+    # 2. Eliminar políticas RLS
     op.execute("DROP POLICY IF EXISTS businesses_tenant_isolation ON businesses;")
     op.execute("DROP POLICY IF EXISTS businesses_onboarding_insert ON businesses;")
     op.execute("DROP POLICY IF EXISTS business_users_tenant_isolation ON business_users;")
     op.execute("DROP POLICY IF EXISTS business_users_onboarding_insert ON business_users;")
 
-    # 2. Deshabilitar RLS
+    # 3. Deshabilitar RLS
     op.execute("ALTER TABLE IF EXISTS business_users NO FORCE ROW LEVEL SECURITY;")
     op.execute("ALTER TABLE IF EXISTS business_users DISABLE ROW LEVEL SECURITY;")
     op.execute("ALTER TABLE IF EXISTS businesses NO FORCE ROW LEVEL SECURITY;")
     op.execute("ALTER TABLE IF EXISTS businesses DISABLE ROW LEVEL SECURITY;")
 
-    # 3. Eliminar tablas
+    # 4. Eliminar tablas
     op.drop_index("ix_business_users_user_id", table_name="business_users")
     op.drop_table("business_users")
     op.drop_table("businesses")

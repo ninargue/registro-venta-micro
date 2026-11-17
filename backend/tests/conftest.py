@@ -2,14 +2,15 @@ from collections.abc import AsyncGenerator
 
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+from sqlalchemy.pool import NullPool
 
 from app.core.config import get_settings
 
 
-@pytest.fixture(scope="session")
+@pytest.fixture
 def async_engine():
     settings = get_settings()
-    engine = create_async_engine(settings.database_url, echo=False)
+    engine = create_async_engine(settings.database_url, echo=False, poolclass=NullPool)
     yield engine
 
 
