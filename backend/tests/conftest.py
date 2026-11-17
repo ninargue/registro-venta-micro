@@ -1,4 +1,5 @@
 from collections.abc import AsyncGenerator
+
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
@@ -13,7 +14,7 @@ def async_engine():
 
 
 @pytest.fixture
-async def db_session(async_engine) -> AsyncGenerator[AsyncSession, None]:
+async def db_session(async_engine) -> AsyncGenerator[AsyncSession]:
     session_factory = async_sessionmaker(async_engine, expire_on_commit=False, class_=AsyncSession)
     async with session_factory() as session:
         yield session

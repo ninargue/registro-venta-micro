@@ -6,14 +6,14 @@
 
 ## 2. Modelos SQLAlchemy y Migración Alembic
 
-- [ ] 2.1 Crear modelos ORM `Business` y `BusinessUser` con metadata y constraints en `backend/app/modules/auth/models.py`
-- [ ] 2.2 Crear script de migración Alembic en `backend/migrations/versions/` para la creación de tablas `businesses` y `business_users`
+- [x] 2.1 Crear modelos ORM `Business` y `BusinessUser` con metadata y constraints en `backend/app/modules/auth/models.py`
+- [x] 2.2 Crear script de migración Alembic en `backend/migrations/versions/` para la creación de tablas `businesses` y `business_users`
 
 ## 3. Políticas RLS y Aislamiento Multi-Tenant
 
-- [ ] 3.1 Agregar directivas `ENABLE ROW LEVEL SECURITY` y `FORCE ROW LEVEL SECURITY` en la migración de Alembic
-- [ ] 3.2 Configurar políticas RLS para operaciones basadas en `current_setting('app.current_business_id', true)`
-- [ ] 3.3 Implementar lógica reversible completa en la función `downgrade()` de la migración
+- [x] 3.1 Agregar directivas `ENABLE ROW LEVEL SECURITY` y `FORCE ROW LEVEL SECURITY` en la migración de Alembic
+- [x] 3.2 Configurar políticas RLS para operaciones basadas en `current_setting('app.current_business_id', true)`
+- [x] 3.3 Implementar lógica reversible completa en la función `downgrade()` de la migración
 
 ## 4. Verificación en VERDE y Roundtrip
 
