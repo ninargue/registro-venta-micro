@@ -1,12 +1,10 @@
 {
   "db_test_fingerprint": {
-    "frozenAt": "2026-11-18T21:07:36.688Z",
+    "frozenAt": "2026-11-18T21:24:28.634Z",
     "testsDir": "C:\\Users\\Armenta\\Documents\\Repositories\\wt-42-esquema-productos-rls\\backend\\tests",
-    "fileCount": 8,
+    "fileCount": 6,
     "files": {
-      "__pycache__/conftest.cpython-314-pytest-9.2.0.pyc": "28a5aa0df5e4f4497462a77bd3150dd90625c2e7d4cffa3a5c6b1814b116b9de",
       "conftest.py": "840e646a51ccf0c1e2faaac0b3368a784570bae9190616e6003720a66095fcfd",
-      "integration/__pycache__/test_db_products.cpython-314-pytest-9.2.0.pyc": "255262b1e81bf92ab994cb218a463ea01328fbebb7eb9a675cec63e8a6791fe6",
       "integration/test_auth_onboarding.py": "dd03f1a7e34b86633696792f5322b940cc73d575d75f31d07cb96007cba847bb",
       "integration/test_db_businesses.py": "5269539b93a33bfaa991ff5d2f01d522c97dd3c609beca2a98462f6e0a9b250d",
       "integration/test_db_products.py": "33cae3abd70c5ce7adda824c617c151487a5db93c7923bfa98ed4091175aa53d",
@@ -30,6 +28,12 @@
         "at": "2026-11-18T21:07:36.690Z",
         "fileCount": 8,
         "reason": "Ruff import sort and format before intermediate commit"
+      },
+      {
+        "event": "refreeze",
+        "at": "2026-11-18T21:24:28.637Z",
+        "fileCount": 6,
+        "reason": "Exclude __pycache__ .pyc bytecode artifacts from test fingerprint"
       }
     ]
   }

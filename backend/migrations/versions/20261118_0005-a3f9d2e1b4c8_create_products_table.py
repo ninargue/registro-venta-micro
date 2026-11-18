@@ -119,17 +119,65 @@ def upgrade() -> None:
         """
     )
 
-    # 4. TODO (db-security-agent - Tasks 3.1 & 3.2):
-    #    - ENABLE y FORCE ROW LEVEL SECURITY en products
-    #    - Crear 4 políticas RLS granulares (SELECT, INSERT, UPDATE, DELETE)
-    #    - Configurar DCL: REVOKE ALL FROM PUBLIC, anon, authenticated; GRANT DML TO app_api
+    # 4. Habilitar y forzar Row-Level Security (RLS)
+    op.execute("ALTER TABLE products ENABLE ROW LEVEL SECURITY;")
+    op.execute("ALTER TABLE products FORCE ROW LEVEL SECURITY;")
+
+    # 5. Políticas RLS granulares por operación aisladas por app.current_business_id
+    op.execute(
+        """
+        CREATE POLICY products_select_isolation ON products
+        FOR SELECT
+        USING (
+            business_id = NULLIF(current_setting('app.current_business_id', true), '')::uuid
+        );
+        """
+    )
+    op.execute(
+        """
+        CREATE POLICY products_insert_isolation ON products
+        FOR INSERT
+        WITH CHECK (
+            business_id = NULLIF(current_setting('app.current_business_id', true), '')::uuid
+        );
+        """
+    )
+    op.execute(
+        """
+        CREATE POLICY products_update_isolation ON products
+        FOR UPDATE
+        USING (
+            business_id = NULLIF(current_setting('app.current_business_id', true), '')::uuid
+        )
+        WITH CHECK (
+            business_id = NULLIF(current_setting('app.current_business_id', true), '')::uuid
+        );
+        """
+    )
+    op.execute(
+        """
+        CREATE POLICY products_delete_isolation ON products
+        FOR DELETE
+        USING (
+            business_id = NULLIF(current_setting('app.current_business_id', true), '')::uuid
+        );
+        """
+    )
+
+    # 6. DCL de mínimo privilegio (sin TRUNCATE, heredado por app_runtime vía app_api)
+    op.execute("REVOKE ALL ON TABLE products FROM PUBLIC, anon, authenticated;")
+    op.execute("GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE products TO app_api;")
 
 
 def downgrade() -> None:
-    # 1. TODO (db-security-agent - Task 3.3):
-    #    - REVOKE ALL ON TABLE products FROM app_api
-    #    - DROP POLICY IF EXISTS (las 4 políticas RLS en products)
-    #    - ALTER TABLE IF EXISTS products NO FORCE / DISABLE ROW LEVEL SECURITY
+    # 1. Revocar privilegios de app_api, eliminar políticas RLS y deshabilitar/no forzar RLS
+    op.execute("REVOKE ALL ON TABLE products FROM app_api;")
+    op.execute("DROP POLICY IF EXISTS products_delete_isolation ON products;")
+    op.execute("DROP POLICY IF EXISTS products_update_isolation ON products;")
+    op.execute("DROP POLICY IF EXISTS products_insert_isolation ON products;")
+    op.execute("DROP POLICY IF EXISTS products_select_isolation ON products;")
+    op.execute("ALTER TABLE IF EXISTS products NO FORCE ROW LEVEL SECURITY;")
+    op.execute("ALTER TABLE IF EXISTS products DISABLE ROW LEVEL SECURITY;")
 
     # 2. Eliminar trigger y función updated_at
     op.execute("DROP TRIGGER IF EXISTS trg_products_set_updated_at ON products;")

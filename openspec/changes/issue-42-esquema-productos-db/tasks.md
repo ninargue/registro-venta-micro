@@ -13,12 +13,12 @@
 
 ## 3. Seguridad RLS Granular, Privilegios DCL y Reversibilidad
 
-- [ ] 3.1 Habilitar y forzar RLS en `products` (`ENABLE` y `FORCE ROW LEVEL SECURITY`) y crear las 4 políticas granulares (`products_select_isolation`, `products_insert_isolation`, `products_update_isolation` con `USING` + `WITH CHECK`, y `products_delete_isolation`) filtradas por `app.current_business_id`
-- [ ] 3.2 Configurar sentencias DCL en `upgrade()`: `REVOKE ALL ON TABLE products FROM PUBLIC, anon, authenticated;` y `GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE products TO app_api;` (sin `TRUNCATE`)
-- [ ] 3.3 Implementar `downgrade()` simétrico completo revocando permisos de `app_api`, eliminando las 4 políticas RLS, deshabilitando RLS, eliminando `trg_products_set_updated_at` y `public.set_products_updated_at()`, eliminando índices y ejecutando `op.drop_table("products")`
+- [x] 3.1 Habilitar y forzar RLS en `products` (`ENABLE` y `FORCE ROW LEVEL SECURITY`) y crear las 4 políticas granulares (`products_select_isolation`, `products_insert_isolation`, `products_update_isolation` con `USING` + `WITH CHECK`, y `products_delete_isolation`) filtradas por `app.current_business_id`
+- [x] 3.2 Configurar sentencias DCL en `upgrade()`: `REVOKE ALL ON TABLE products FROM PUBLIC, anon, authenticated;` y `GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE products TO app_api;` (sin `TRUNCATE`)
+- [x] 3.3 Implementar `downgrade()` simétrico completo revocando permisos de `app_api`, eliminando las 4 políticas RLS, deshabilitando RLS, eliminando `trg_products_set_updated_at` y `public.set_products_updated_at()`, eliminando índices y ejecutando `op.drop_table("products")`
 
 ## 4. Verificación en VERDE, Integridad Alembic y Mutation Testing
 
-- [ ] 4.1 Ejecutar validación estática SQL (`validate-db-migrations.js`), aplicar `cd backend && uv run alembic upgrade head`, comprobar sincronía ORM (`uv run alembic check`) y validar roundtrip (`alembic downgrade -1` / `downgrade base` y `upgrade head`) contra `DB_TEST_URL`
-- [ ] 4.2 Ejecutar `cd backend && uv run ruff check . && uv run ruff format --check . && uv run mypy app` y `cd backend && uv run pytest` confirmando 100% en VERDE
+- [x] 4.1 Ejecutar validación estática SQL (`validate-db-migrations.js`), aplicar `cd backend && uv run alembic upgrade head`, comprobar sincronía ORM (`uv run alembic check`) y validar roundtrip (`alembic downgrade -1` / `downgrade base` y `upgrade head`) contra `DB_TEST_URL`
+- [x] 4.2 Ejecutar `cd backend && uv run ruff check . && uv run ruff format --check . && uv run mypy app` y `cd backend && uv run pytest` confirmando 100% en VERDE
 - [ ] 4.3 Auditar falsabilidad de `backend/tests/integration/test_db_products.py` (Mutation Testing de constraints y RLS) y confirmar `openspec validate "issue-42-esquema-productos-db"` en verde
