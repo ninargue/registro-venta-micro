@@ -1,0 +1,48 @@
+{
+  "schema_version": 1,
+  "layer": "backend",
+  "max_repeat": 2,
+  "attempt": 1,
+  "errors": [
+    {
+      "attempt": 1,
+      "timestamp": "2026-11-18T04:18:08.819Z",
+      "layer": "backend",
+      "step": "Gate 4",
+      "error_signature": "53a191ac06be",
+      "message": "RuntimeError: Event loop is closed / InterfaceError in asyncpg pooled engine across pytest-asyncio function loops",
+      "avoid": "Use NullPool or loop-aware engine lifecycle in backend/app/core/db.py instead of global lru_cache engine across event loops"
+    }
+  ],
+  "backend_snapshots": {
+    "tests": {
+      "captured_at": "2026-11-18T04:09:20.714Z",
+      "file_count": 5,
+      "digest": "980306a45b7177abe40f331d730ccf752cb2696baaafbb986c8f1cfed86872d4",
+      "files": {
+        "backend/tests/conftest.py": "840e646a51ccf0c1e2faaac0b3368a784570bae9190616e6003720a66095fcfd",
+        "backend/tests/integration/test_auth_onboarding.py": "a3fd27589272aba1b8e2f8f53426176a26f73a591cab19949b39f5875d62cc79",
+        "backend/tests/integration/test_db_businesses.py": "87a4ab235af69d110f63c242bc1ed5c4567bd77aa9044af7ce9e7706e13cb951",
+        "backend/tests/unit/test_auth_schemas.py": "26e3a3c991cbaa16beb3594aed460cad09d2e705dc4ddb3197aba45dbcf72fc7",
+        "backend/tests/unit/test_health.py": "c4d4e5c25bd5dbb99976e8a93f02971712e1afb6ed42cc8da876b0e220935944"
+      }
+    },
+    "db": {
+      "db_mode": "with-db",
+      "captured_at": "2026-11-18T04:09:21.796Z",
+      "file_count": 6,
+      "digest": "14d9f0a48c35f5a0f9d73e1588b33312b4592466193be1afb8f791e32e52c0d2",
+      "files": {
+        "backend/migrations/README": "21256d00ebeabca93fe5384ce62a0913e94c92f7fd21b92715415553fbcf99ae",
+        "backend/migrations/env.py": "9ce94be1f72dfdc7c952edcf358c6b6ce6e32290dc7329930838bf57d707abd4",
+        "backend/migrations/script.py.mako": "d38920781b4d31ae1c0a71bc09f41c2ade8feab9e5a087e3f30cb4bbf0c1c9d3",
+        "backend/migrations/versions/20261102_0001-ba617f3a8caa_baseline.py": "4e4e3fd473a07cad2f0b419dd9ecae1483d4a00bd3358346f3a40a7a98114e1b",
+        "backend/migrations/versions/20261116_0002-c843e91d84f1_create_businesses_and_rls.py": "f5da28dba707eeec65b5af914b4e73173c3d617b635c96b6df1a05c618e0bd63",
+        "backend/migrations/versions/20261117_0003-e4a7c2b91f03_fix_businesses_rls_and_unique_user.py": "189ae40e9b90e789d23b791ef56b792d03c6d48a5d13c1a630e78744308711d6"
+      }
+    }
+  },
+  "consecutive_same_signature": 1,
+  "last_signature": "53a191ac06be",
+  "loop_detected": false
+}
