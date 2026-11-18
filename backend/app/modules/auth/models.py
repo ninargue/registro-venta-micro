@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime
 
-from sqlalchemy import CheckConstraint, DateTime, ForeignKey, String, func
+from sqlalchemy import CheckConstraint, DateTime, ForeignKey, String, UniqueConstraint, func
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -39,6 +39,7 @@ class BusinessUser(Base):
     __tablename__ = "business_users"
     __table_args__ = (
         CheckConstraint("role IN ('owner', 'cashier')", name="chk_business_users_role_valid"),
+        UniqueConstraint("user_id", name="uq_business_users_user_id"),
     )
 
     business_id: Mapped[uuid.UUID] = mapped_column(
