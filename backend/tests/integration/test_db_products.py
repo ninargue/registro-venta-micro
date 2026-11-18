@@ -232,6 +232,16 @@ async def test_insert_product_rejects_nulls_on_mandatory_attributes(
                     "VALUES (:b_id, 'Prod', 10.00, NULL)",
                     {"b_id": business_id},
                 ),
+                (
+                    "INSERT INTO products (business_id, name, sale_price, created_at) "
+                    "VALUES (:b_id, 'Prod', 10.00, NULL)",
+                    {"b_id": business_id},
+                ),
+                (
+                    "INSERT INTO products (business_id, name, sale_price, updated_at) "
+                    "VALUES (:b_id, 'Prod', 10.00, NULL)",
+                    {"b_id": business_id},
+                ),
             ]
             for sql, params in null_cases:
                 with pytest.raises(IntegrityError) as exc_info:
@@ -956,5 +966,151 @@ async def test_authenticated_and_anon_cannot_access_or_truncate_products(
                     _assert_sqlstate(exc_info.value, "42501")
 
                 await db_session.execute(text("RESET ROLE;"))
+        finally:
+            await tx.rollback()
+
+
+@pytest.mark.asyncio
+async def test_products_composite_unique_business_id_id_supports_composite_fk(
+    db_session: AsyncSession,
+) -> None:
+    b1 = str(uuid.uuid4())
+    b2 = str(uuid.uuid4())
+    async with db_session.begin() as tx:
+        try:
+            constraint_row = (
+                (
+                    await db_session.execute(
+                        text(
+                            """
+                            SELECT
+                                c.conname,
+                                c.contype::text AS contype,
+                                pg_get_constraintdef(c.oid) AS condef
+                            FROM pg_constraint c
+                            JOIN pg_class t ON t.oid = c.conrelid
+                            JOIN pg_namespace n ON n.oid = t.relnamespace
+                            WHERE n.nspname = 'public'
+                              AND t.relname = 'products'
+                              AND c.conname = 'uq_products_business_id_id';
+                            """
+                        )
+                    )
+                )
+                .mappings()
+                .one_or_none()
+            )
+            assert constraint_row is not None, "uq_products_business_id_id must exist on products"
+            assert constraint_row["contype"] == "u"
+            assert "UNIQUE (business_id, id)" in constraint_row["condef"]
+
+            await _insert_business(db_session, b1, "Comercio FK A")
+            await _insert_business(db_session, b2, "Comercio FK B")
+            p1 = await _insert_product(
+                db_session, business_id=b1, name="Prod FK", sale_price=Decimal("50.00")
+            )
+
+            await db_session.execute(
+                text(
+                    """
+                    CREATE TABLE public.tmp_composite_fk_check (
+                        business_id uuid NOT NULL,
+                        product_id uuid NOT NULL,
+                        FOREIGN KEY (business_id, product_id)
+                            REFERENCES public.products (business_id, id)
+                    );
+                    """
+                )
+            )
+            await db_session.execute(
+                text(
+                    """
+                    INSERT INTO public.tmp_composite_fk_check (business_id, product_id)
+                    VALUES (:b_id, :p_id);
+                    """
+                ),
+                {"b_id": b1, "p_id": p1},
+            )
+
+            with pytest.raises(IntegrityError) as exc_cross_fk:
+                async with db_session.begin_nested():
+                    await db_session.execute(
+                        text(
+                            """
+                            INSERT INTO public.tmp_composite_fk_check (business_id, product_id)
+                            VALUES (:b_id, :p_id);
+                            """
+                        ),
+                        {"b_id": b2, "p_id": p1},
+                    )
+            _assert_sqlstate(exc_cross_fk.value, "23503")
+        finally:
+            await tx.rollback()
+
+
+@pytest.mark.asyncio
+async def test_products_primary_key_rejects_duplicate_id(db_session: AsyncSession) -> None:
+    b1 = str(uuid.uuid4())
+    b2 = str(uuid.uuid4())
+    shared_product_id = str(uuid.uuid4())
+    async with db_session.begin() as tx:
+        try:
+            await _insert_business(db_session, b1, "Comercio PK A")
+            await _insert_business(db_session, b2, "Comercio PK B")
+
+            await _insert_product(
+                db_session,
+                business_id=b1,
+                product_id=shared_product_id,
+                name="Producto Original",
+                sale_price=Decimal("100.00"),
+            )
+
+            for target_business in (b1, b2):
+                with pytest.raises(IntegrityError) as exc_pk:
+                    async with db_session.begin_nested():
+                        await _insert_product(
+                            db_session,
+                            business_id=target_business,
+                            product_id=shared_product_id,
+                            name="Producto ID Duplicado",
+                            sale_price=Decimal("200.00"),
+                        )
+                _assert_sqlstate(exc_pk.value, "23505")
+        finally:
+            await tx.rollback()
+
+
+@pytest.mark.asyncio
+async def test_products_partial_unique_code_index_metadata(db_session: AsyncSession) -> None:
+    async with db_session.begin() as tx:
+        try:
+            idx_row = (
+                (
+                    await db_session.execute(
+                        text(
+                            """
+                            SELECT
+                                i.indisunique,
+                                i.indpred IS NOT NULL AS has_predicate,
+                                pg_get_expr(i.indpred, i.indrelid) AS predicate_expr
+                            FROM pg_index i
+                            JOIN pg_class idx ON idx.oid = i.indexrelid
+                            JOIN pg_class tbl ON tbl.oid = i.indrelid
+                            JOIN pg_namespace ns ON ns.oid = tbl.relnamespace
+                            WHERE ns.nspname = 'public'
+                              AND tbl.relname = 'products'
+                              AND idx.relname = 'uq_products_business_id_code';
+                            """
+                        )
+                    )
+                )
+                .mappings()
+                .one_or_none()
+            )
+            assert idx_row is not None, "uq_products_business_id_code index must exist"
+            assert idx_row["indisunique"] is True
+            assert idx_row["has_predicate"] is True
+            assert "code IS NOT NULL" in idx_row["predicate_expr"]
         finally:
             await tx.rollback()
