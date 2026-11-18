@@ -21,6 +21,18 @@ class InvalidCredentialsError(Exception):
     """Error lanzado cuando Supabase Auth rechaza las credenciales."""
 
 
+class AuthRateLimitError(Exception):
+    """Error lanzado cuando Supabase Auth responde 429 Too Many Requests."""
+
+
+class AuthUpstreamTimeoutError(Exception):
+    """Error lanzado cuando Supabase Auth excede el timeout de red."""
+
+
+class AuthUpstreamError(Exception):
+    """Error lanzado cuando Supabase Auth responde 5xx o falla el transporte."""
+
+
 class BusinessAlreadyExistsError(Exception):
     """Error lanzado cuando el usuario ya tiene un comercio asignado."""
 
@@ -29,16 +41,56 @@ def _is_unique_violation(exc: IntegrityError) -> bool:
     orig = exc.orig
     if orig is None:
         return False
-    sqlstate = getattr(orig, "sqlstate", None) or getattr(orig, "pgcode", None)
-    return sqlstate == "23505" or "uq_business_users_user_id" in str(orig)
+    cause = getattr(orig, "__cause__", None)
+    sqlstate = (
+        getattr(orig, "sqlstate", None)
+        or getattr(orig, "pgcode", None)
+        or getattr(cause, "sqlstate", None)
+        or getattr(cause, "pgcode", None)
+    )
+    constraint_name = getattr(orig, "constraint_name", None) or getattr(
+        cause, "constraint_name", None
+    )
+    return sqlstate == "23505" and (
+        constraint_name == "uq_business_users_user_id"
+        or "uq_business_users_user_id" in str(orig)
+    )
 
 
 class AuthService:
     """Casos de uso de autenticación y onboarding."""
 
-    def __init__(self, repository: AuthRepository, settings: Settings) -> None:
+    def __init__(
+        self,
+        repository: AuthRepository,
+        settings: Settings,
+        http_client: httpx.AsyncClient | None = None,
+    ) -> None:
         self._repository = repository
         self._settings = settings
+        self._http_client = http_client
+
+    async def _post_supabase_token(
+        self,
+        url: str,
+        headers: dict[str, str],
+        email: str,
+        password: str,
+    ) -> httpx.Response:
+        if self._http_client is not None:
+            return await self._http_client.post(
+                url,
+                params={"grant_type": "password"},
+                headers=headers,
+                json={"email": email, "password": password},
+            )
+        async with httpx.AsyncClient(timeout=httpx.Timeout(10.0, connect=5.0)) as client:
+            return await client.post(
+                url,
+                params={"grant_type": "password"},
+                headers=headers,
+                json={"email": email, "password": password},
+            )
 
     async def _authenticate_supabase(self, email: str, password: str) -> tuple[uuid.UUID, str]:
         if not self._settings.supabase_url or not self._settings.supabase_anon_key:
@@ -50,14 +102,17 @@ class AuthService:
             "Content-Type": "application/json",
         }
 
-        async with httpx.AsyncClient(timeout=10.0) as client:
-            response = await client.post(
-                url,
-                params={"grant_type": "password"},
-                headers=headers,
-                json={"email": email, "password": password},
-            )
+        try:
+            response = await self._post_supabase_token(url, headers, email, password)
+        except httpx.TimeoutException as exc:
+            raise AuthUpstreamTimeoutError("Supabase Auth request timed out") from exc
+        except httpx.RequestError as exc:
+            raise AuthUpstreamError("Supabase Auth transport failure") from exc
 
+        if response.status_code == 429:
+            raise AuthRateLimitError("Supabase Auth rate limit exceeded")
+        if response.status_code >= 500:
+            raise AuthUpstreamError(f"Supabase Auth upstream error: {response.status_code}")
         if response.status_code != 200:
             raise InvalidCredentialsError("Invalid email or password")
 
@@ -124,7 +179,8 @@ class AuthService:
         if current_user.business_id is not None:
             raise BusinessAlreadyExistsError("User already belongs to a business")
 
-        assert payload.timezone is not None
+        if payload.timezone is None:
+            raise ValueError("Timezone must be resolved before onboarding")
 
         try:
             business = await self._repository.create_business_with_owner(
@@ -150,7 +206,6 @@ class AuthService:
             name=business.name,
             country=business.country,
             timezone=business.timezone,
-            role="owner",
             created_at=business.created_at,
         )
         return response, token

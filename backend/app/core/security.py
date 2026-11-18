@@ -66,10 +66,14 @@ def decode_access_token(token: str, settings: Settings) -> CurrentUser:
         if not isinstance(sub, str) or not isinstance(email, str):
             raise ValueError("Invalid token claims")
         user_id = uuid.UUID(sub)
-        business_id = uuid.UUID(raw_business_id) if isinstance(raw_business_id, str) else None
+        if raw_business_id is not None and not isinstance(raw_business_id, str):
+            raise ValueError("Invalid business_id claim")
+        business_id = uuid.UUID(raw_business_id) if raw_business_id is not None else None
         if raw_role is not None and raw_role not in ("owner", "cashier"):
             raise ValueError("Invalid role claim")
         role = cast(RoleType | None, raw_role)
+        if (business_id is None) != (role is None):
+            raise ValueError("Inconsistent business_id and role claims")
     except (jwt.PyJWTError, ValueError) as exc:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,

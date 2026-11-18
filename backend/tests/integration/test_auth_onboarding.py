@@ -24,6 +24,9 @@ TEST_JWT_SECRET = "test-jwt-secret-key-for-integration-tests-32b"
 
 @pytest.fixture
 def auth_env(monkeypatch: pytest.MonkeyPatch):
+    from app.core.rate_limit import login_rate_limiter
+
+    login_rate_limiter.reset()
     monkeypatch.setenv("SUPABASE_URL", TEST_SUPABASE_URL)
     monkeypatch.setenv("SUPABASE_ANON_KEY", TEST_SUPABASE_ANON_KEY)
     monkeypatch.setenv("JWT_SECRET_KEY", TEST_JWT_SECRET)
@@ -31,6 +34,7 @@ def auth_env(monkeypatch: pytest.MonkeyPatch):
     if hasattr(get_settings, "cache_clear"):
         get_settings.cache_clear()
     yield
+    login_rate_limiter.reset()
     if hasattr(get_settings, "cache_clear"):
         get_settings.cache_clear()
 
@@ -796,3 +800,130 @@ async def test_rls_user_db_context_and_isolation(
         assert data["memberships"] == [[biz_a, user_a]]
     finally:
         await _cleanup_businesses(db_session, [biz_a, biz_b])
+
+
+@pytest.mark.asyncio
+async def test_login_maps_supabase_429_5xx_and_timeout_without_masking_as_401(
+    auth_env: None,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    transport = httpx.ASGITransport(app=app)
+
+    # 1. Supabase 429 -> 429 UPSTREAM_RATE_LIMITED
+    _patch_supabase_auth(
+        monkeypatch,
+        lambda _req: httpx.Response(status_code=429, json={"error": "rate_limit"}),
+    )
+    async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+        res_429 = await client.post(
+            "/api/v1/auth/login",
+            json={"email": "rl-429@example.com", "password": "secret"},
+        )
+    assert res_429.status_code == 429
+    assert res_429.json()["code"] == "UPSTREAM_RATE_LIMITED"
+    assert "access_token" not in res_429.cookies
+
+    # 2. Supabase 503 -> 502/503 AUTH_UPSTREAM_UNAVAILABLE
+    _patch_supabase_auth(
+        monkeypatch,
+        lambda _req: httpx.Response(status_code=503, json={"error": "unavailable"}),
+    )
+    async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+        res_503 = await client.post(
+            "/api/v1/auth/login",
+            json={"email": "rl-503@example.com", "password": "secret"},
+        )
+    assert res_503.status_code in (502, 503)
+    assert res_503.json()["code"] == "AUTH_UPSTREAM_UNAVAILABLE"
+
+    # 3. httpx.ReadTimeout -> 503 AUTH_UPSTREAM_TIMEOUT
+    def _raise_timeout(_req: httpx.Request) -> httpx.Response:
+        raise httpx.ReadTimeout("Supabase timed out")
+
+    _patch_supabase_auth(monkeypatch, _raise_timeout)
+    async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+        res_timeout = await client.post(
+            "/api/v1/auth/login",
+            json={"email": "rl-timeout@example.com", "password": "secret"},
+        )
+    assert res_timeout.status_code == 503
+    assert res_timeout.json()["code"] == "AUTH_UPSTREAM_TIMEOUT"
+
+
+@pytest.mark.asyncio
+async def test_login_rate_limiter_blocks_excessive_requests_per_email(
+    auth_env: None,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("LOGIN_RATE_LIMIT_EMAIL_MAX", "2")
+    if hasattr(get_settings, "cache_clear"):
+        get_settings.cache_clear()
+
+    calls = _patch_supabase_auth(
+        monkeypatch,
+        lambda _req: httpx.Response(status_code=400, json={"error": "invalid_grant"}),
+    )
+    transport = httpx.ASGITransport(app=app)
+    async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+        r1 = await client.post(
+            "/api/v1/auth/login",
+            json={"email": "bruteforce@example.com", "password": "wrong"},
+        )
+        r2 = await client.post(
+            "/api/v1/auth/login",
+            json={"email": "bruteforce@example.com", "password": "wrong"},
+        )
+        r3 = await client.post(
+            "/api/v1/auth/login",
+            json={"email": "bruteforce@example.com", "password": "wrong"},
+        )
+
+    assert r1.status_code == 401
+    assert r2.status_code == 401
+    assert r3.status_code == 429
+    assert r3.json()["code"] == "RATE_LIMIT_EXCEEDED"
+    assert len(calls) == 2
+
+
+@pytest.mark.asyncio
+async def test_error_responses_use_unified_error_response_format(auth_env: None) -> None:
+    transport = httpx.ASGITransport(app=app)
+    async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+        unauth_res = await client.post(
+            "/api/v1/auth/onboarding",
+            json={"name": "Kiosco", "country": "AR"},
+        )
+        invalid_res = await client.post(
+            "/api/v1/auth/login",
+            json={"email": "not-an-email", "password": ""},
+        )
+
+    assert unauth_res.status_code == 401
+    unauth_body = unauth_res.json()
+    assert set(unauth_body.keys()) == {"code", "message", "details"}
+    assert unauth_body["code"] == "UNAUTHENTICATED"
+
+    assert invalid_res.status_code == 422
+    invalid_body = invalid_res.json()
+    assert set(invalid_body.keys()) == {"code", "message", "details"}
+    assert invalid_body["code"] == "VALIDATION_ERROR"
+
+
+@pytest.mark.asyncio
+async def test_set_rls_user_context_clears_residual_business_id(db_session: AsyncSession) -> None:
+    from app.core.db import set_rls_business_context, set_rls_user_context
+
+    u1 = uuid.uuid4()
+    b1 = uuid.uuid4()
+    async with db_session.begin() as tx:
+        try:
+            await set_rls_business_context(db_session, b1)
+            await set_rls_user_context(db_session, u1)
+            biz_guc = (
+                await db_session.execute(
+                    text("SELECT current_setting('app.current_business_id', true)")
+                )
+            ).scalar_one()
+            assert biz_guc == ""
+        finally:
+            await tx.rollback()

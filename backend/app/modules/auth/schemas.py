@@ -24,7 +24,14 @@ COUNTRY_TIMEZONES: dict[str, str] = {
 }
 
 
+def _reject_nul_byte(value: str) -> str:
+    if "\x00" in value:
+        raise ValueError("Input must not contain NUL bytes")
+    return value
+
+
 def _validate_iana_timezone(value: str) -> str:
+    _reject_nul_byte(value)
     cleaned = value.strip()
     if not cleaned:
         raise ValueError("Timezone cannot be empty")
@@ -40,16 +47,22 @@ def _validate_iana_timezone(value: str) -> str:
 class LoginRequest(BaseModel):
     """Credenciales de entrada para POST /api/v1/auth/login."""
 
-    email: str
-    password: str = Field(min_length=1)
+    email: str = Field(max_length=254)
+    password: str = Field(min_length=1, max_length=128)
 
     @field_validator("email")
     @classmethod
     def validate_email(cls, value: str) -> str:
+        _reject_nul_byte(value)
         cleaned = value.strip().lower()
         if not EMAIL_REGEX.match(cleaned):
             raise ValueError("Invalid email format")
         return cleaned
+
+    @field_validator("password")
+    @classmethod
+    def validate_password(cls, value: str) -> str:
+        return _reject_nul_byte(value)
 
 
 class UserPayload(BaseModel):
@@ -87,6 +100,7 @@ class OnboardingRequest(BaseModel):
     @field_validator("name")
     @classmethod
     def validate_name(cls, value: str) -> str:
+        _reject_nul_byte(value)
         cleaned = value.strip()
         if not cleaned:
             raise ValueError("Business name cannot be empty")
@@ -97,6 +111,7 @@ class OnboardingRequest(BaseModel):
     @field_validator("country")
     @classmethod
     def validate_country(cls, value: str) -> str:
+        _reject_nul_byte(value)
         cleaned = value.strip().upper()
         if len(cleaned) != 2 or cleaned not in COUNTRY_TIMEZONES:
             raise ValueError(f"Unsupported country code: {value}")

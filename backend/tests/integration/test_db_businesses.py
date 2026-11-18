@@ -225,7 +225,7 @@ async def test_rls_isolation_by_session_variable(db_session: AsyncSession) -> No
             )
 
             # Switch to non-superuser role so PostgreSQL enforces RLS
-            await db_session.execute(text("SET LOCAL ROLE authenticated;"))
+            await db_session.execute(text("SET LOCAL ROLE app_api;"))
 
             # Set tenant context to b1
             await db_session.execute(text(f"SET LOCAL app.current_business_id = '{b1}';"))
@@ -411,6 +411,7 @@ async def test_rls_business_users_insert_own_user_allowed(db_session: AsyncSessi
 
             await db_session.execute(text("SET LOCAL ROLE app_api;"))
             await db_session.execute(text(f"SET LOCAL app.current_user_id = '{u_a}';"))
+            await db_session.execute(text(f"SET LOCAL app.current_business_id = '{b1}';"))
 
             await _insert_business_user(db_session, b1, u_a, "owner")
 
@@ -745,5 +746,224 @@ async def test_app_api_cannot_bypass_rls_or_truncate(db_session: AsyncSession) -
                 async with db_session.begin_nested():
                     await db_session.execute(text("TRUNCATE business_users;"))
             _assert_sqlstate(exc_trunc_bu.value, "42501")
+        finally:
+            await tx.rollback()
+
+
+@pytest.mark.asyncio
+async def test_businesses_onboarding_insert_requires_user_and_matching_business_context(
+    db_session: AsyncSession,
+) -> None:
+    b1 = str(uuid.uuid4())
+    b2 = str(uuid.uuid4())
+    u1 = str(uuid.uuid4())
+
+    async with db_session.begin() as tx:
+        try:
+            await db_session.execute(text("SET LOCAL ROLE app_api;"))
+
+            # Sin app.current_user_id ni app.current_business_id -> 42501
+            with pytest.raises(DBAPIError) as exc_no_ctx:
+                async with db_session.begin_nested():
+                    await _insert_business(db_session, b1, "Sin Contexto")
+            _assert_sqlstate(exc_no_ctx.value, "42501")
+
+            # Con app.current_user_id pero sin app.current_business_id -> 42501
+            await db_session.execute(text(f"SET LOCAL app.current_user_id = '{u1}';"))
+            with pytest.raises(DBAPIError) as exc_no_biz:
+                async with db_session.begin_nested():
+                    await _insert_business(db_session, b1, "Sin Business")
+            _assert_sqlstate(exc_no_biz.value, "42501")
+
+            # Con app.current_business_id distinto al id insertado -> 42501
+            await db_session.execute(text(f"SET LOCAL app.current_business_id = '{b2}';"))
+            with pytest.raises(DBAPIError) as exc_mismatch:
+                async with db_session.begin_nested():
+                    await _insert_business(db_session, b1, "Mismatch Business")
+            _assert_sqlstate(exc_mismatch.value, "42501")
+
+            # Con ambos GUCs válidos y coincidentes -> permitido
+            await db_session.execute(text(f"SET LOCAL app.current_business_id = '{b1}';"))
+            await _insert_business(db_session, b1, "Onboarding Valido")
+            row = (
+                await db_session.execute(
+                    text("SELECT name FROM businesses WHERE id = :b1;"),
+                    {"b1": b1},
+                )
+            ).scalar_one()
+            assert row == "Onboarding Valido"
+        finally:
+            await tx.rollback()
+
+
+@pytest.mark.asyncio
+async def test_authenticated_cannot_access_or_truncate_tables(db_session: AsyncSession) -> None:
+    async with db_session.begin() as tx:
+        try:
+            await db_session.execute(text("SET LOCAL ROLE authenticated;"))
+
+            with pytest.raises(DBAPIError) as exc_sel_biz:
+                async with db_session.begin_nested():
+                    await db_session.execute(text("SELECT id FROM businesses LIMIT 1;"))
+            _assert_sqlstate(exc_sel_biz.value, "42501")
+
+            with pytest.raises(DBAPIError) as exc_trunc_biz:
+                async with db_session.begin_nested():
+                    await db_session.execute(text("TRUNCATE businesses;"))
+            _assert_sqlstate(exc_trunc_biz.value, "42501")
+
+            with pytest.raises(DBAPIError) as exc_trunc_bu:
+                async with db_session.begin_nested():
+                    await db_session.execute(text("TRUNCATE business_users;"))
+            _assert_sqlstate(exc_trunc_bu.value, "42501")
+        finally:
+            await tx.rollback()
+
+
+@pytest.mark.asyncio
+async def test_rls_business_users_insert_without_business_context_rejected(
+    db_session: AsyncSession,
+) -> None:
+    b1 = str(uuid.uuid4())
+    u_a = str(uuid.uuid4())
+
+    async with db_session.begin() as tx:
+        try:
+            await _insert_business(db_session, b1, "Target Store")
+
+            await db_session.execute(text("SET LOCAL ROLE app_api;"))
+            await db_session.execute(text(f"SET LOCAL app.current_user_id = '{u_a}';"))
+
+            # app.current_business_id sin setear (NULL) debe rechazarse con 42501
+            with pytest.raises(DBAPIError) as exc_unset:
+                async with db_session.begin_nested():
+                    await _insert_business_user(db_session, b1, u_a, "owner")
+            _assert_sqlstate(exc_unset.value, "42501")
+
+            # app.current_business_id vacío debe rechazarse con 42501
+            await db_session.execute(text("SET LOCAL app.current_business_id = '';"))
+            with pytest.raises(DBAPIError) as exc_empty:
+                async with db_session.begin_nested():
+                    await _insert_business_user(db_session, b1, u_a, "owner")
+            _assert_sqlstate(exc_empty.value, "42501")
+        finally:
+            await tx.rollback()
+
+
+@pytest.mark.asyncio
+async def test_business_users_update_and_delete_blocked_for_cashier_role(
+    db_session: AsyncSession,
+) -> None:
+    b1 = str(uuid.uuid4())
+    u_owner = str(uuid.uuid4())
+    u_cashier = str(uuid.uuid4())
+
+    async with db_session.begin() as tx:
+        try:
+            await _insert_business(db_session, b1, "Tienda Roles")
+            await _insert_business_user(db_session, b1, u_owner, "owner")
+            await _insert_business_user(db_session, b1, u_cashier, "cashier")
+
+            await db_session.execute(text("SET LOCAL ROLE app_api;"))
+            await db_session.execute(text(f"SET LOCAL app.current_business_id = '{b1}';"))
+            await db_session.execute(text(f"SET LOCAL app.current_user_id = '{u_cashier}';"))
+            await db_session.execute(text("SET LOCAL app.current_user_role = 'cashier';"))
+
+            upd = await db_session.execute(
+                text("UPDATE business_users SET role = 'owner' WHERE user_id = :u;"),
+                {"u": u_cashier},
+            )
+            assert upd.rowcount == 0
+
+            dele = await db_session.execute(
+                text("DELETE FROM business_users WHERE user_id = :u;"),
+                {"u": u_owner},
+            )
+            assert dele.rowcount == 0
+        finally:
+            await tx.rollback()
+
+
+@pytest.mark.asyncio
+async def test_app_runtime_role_exists_with_nobypassrls_and_inherits_app_api(
+    db_session: AsyncSession,
+) -> None:
+    b1 = str(uuid.uuid4())
+    b2 = str(uuid.uuid4())
+
+    async with db_session.begin() as tx:
+        try:
+            role_row = (
+                await db_session.execute(
+                    text(
+                        """
+                        SELECT
+                            rolcanlogin,
+                            rolsuper,
+                            rolbypassrls,
+                            rolcreatedb,
+                            rolcreaterole,
+                            pg_has_role('app_runtime', 'app_api', 'MEMBER') AS is_member
+                        FROM pg_roles
+                        WHERE rolname = 'app_runtime';
+                        """
+                    )
+                )
+            ).one_or_none()
+            assert role_row is not None, "El rol app_runtime debe existir"
+            assert role_row[0] is True
+            assert role_row[1] is False
+            assert role_row[2] is False
+            assert role_row[3] is False
+            assert role_row[4] is False
+            assert role_row[5] is True
+
+            await _insert_business(db_session, b1, "Negocio 1")
+            await _insert_business(db_session, b2, "Negocio 2")
+
+            # Incluso sin SET LOCAL ROLE app_api, app_runtime no puede saltarse RLS ni truncar
+            await db_session.execute(text("SET LOCAL ROLE app_runtime;"))
+            await db_session.execute(text(f"SET LOCAL app.current_business_id = '{b1}';"))
+
+            rows = (
+                await db_session.execute(
+                    text("SELECT id FROM businesses WHERE id = :b2;"),
+                    {"b2": b2},
+                )
+            ).fetchall()
+            assert rows == []
+
+            with pytest.raises(DBAPIError) as exc_trunc:
+                async with db_session.begin_nested():
+                    await db_session.execute(text("TRUNCATE businesses;"))
+            _assert_sqlstate(exc_trunc.value, "42501")
+        finally:
+            await tx.rollback()
+
+
+@pytest.mark.asyncio
+async def test_businesses_updated_at_trigger_updates_on_update(db_session: AsyncSession) -> None:
+    b1 = str(uuid.uuid4())
+    async with db_session.begin() as tx:
+        try:
+            await _insert_business(db_session, b1, "Original")
+            initial_ts = (
+                await db_session.execute(
+                    text("SELECT updated_at FROM businesses WHERE id = :b1;"),
+                    {"b1": b1},
+                )
+            ).scalar_one()
+
+            await db_session.execute(
+                text("UPDATE businesses SET name = 'Actualizado' WHERE id = :b1;"),
+                {"b1": b1},
+            )
+            new_ts = (
+                await db_session.execute(
+                    text("SELECT updated_at FROM businesses WHERE id = :b1;"),
+                    {"b1": b1},
+                )
+            ).scalar_one()
+            assert new_ts > initial_ts
         finally:
             await tx.rollback()

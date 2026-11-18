@@ -1,9 +1,10 @@
-from fastapi import APIRouter, Depends, Response, status
+from fastapi import APIRouter, Depends, Request, Response, status
 from fastapi.responses import JSONResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import Settings, get_settings
 from app.core.db import get_db
+from app.core.rate_limit import login_rate_limiter
 from app.core.security import CurrentUser, get_current_user
 from app.modules.auth.repository import AuthRepository
 from app.modules.auth.schemas import (
@@ -14,7 +15,10 @@ from app.modules.auth.schemas import (
     OnboardingRequest,
 )
 from app.modules.auth.service import (
+    AuthRateLimitError,
     AuthService,
+    AuthUpstreamError,
+    AuthUpstreamTimeoutError,
     BusinessAlreadyExistsError,
     InvalidCredentialsError,
 )
@@ -23,11 +27,13 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 
 
 def get_auth_service(
+    request: Request,
     db: AsyncSession = Depends(get_db),
     settings: Settings = Depends(get_settings),
 ) -> AuthService:
-    """Construye AuthService con su repositorio y configuración."""
-    return AuthService(repository=AuthRepository(db), settings=settings)
+    """Construye AuthService con su repositorio, configuración y cliente HTTP compartido."""
+    http_client = getattr(request.app.state, "http_client", None)
+    return AuthService(repository=AuthRepository(db), settings=settings, http_client=http_client)
 
 
 def _set_session_cookie(response: Response, token: str, settings: Settings) -> None:
@@ -42,31 +48,70 @@ def _set_session_cookie(response: Response, token: str, settings: Settings) -> N
     )
 
 
+def _error_json(status_code: int, code: str, message: str) -> JSONResponse:
+    return JSONResponse(
+        status_code=status_code,
+        content=ErrorResponse(code=code, message=message, details=None).model_dump(),
+    )
+
+
 @router.post(
     "/login",
     response_model=LoginResponse,
     responses={
         401: {"model": ErrorResponse},
         422: {"model": ErrorResponse},
+        429: {"model": ErrorResponse},
+        502: {"model": ErrorResponse},
+        503: {"model": ErrorResponse},
     },
 )
 async def login(
     payload: LoginRequest,
+    request: Request,
     response: Response,
     service: AuthService = Depends(get_auth_service),
     settings: Settings = Depends(get_settings),
 ) -> LoginResponse | JSONResponse:
     """Autentica usuario contra Supabase Auth y emite cookie HttpOnly con JWT."""
+    client_ip = request.client.host if request.client else "unknown"
+    window = settings.login_rate_limit_window_seconds
+    if not login_rate_limiter.check_and_record(
+        f"ip:{client_ip}", settings.login_rate_limit_ip_max, window
+    ) or not login_rate_limiter.check_and_record(
+        f"email:{payload.email}", settings.login_rate_limit_email_max, window
+    ):
+        return _error_json(
+            status.HTTP_429_TOO_MANY_REQUESTS,
+            "RATE_LIMIT_EXCEEDED",
+            "Too many login attempts",
+        )
+
     try:
         login_response, token = await service.login(payload)
     except InvalidCredentialsError:
-        return JSONResponse(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            content=ErrorResponse(
-                code="INVALID_CREDENTIALS",
-                message="Invalid email or password",
-                details=None,
-            ).model_dump(),
+        return _error_json(
+            status.HTTP_401_UNAUTHORIZED,
+            "INVALID_CREDENTIALS",
+            "Invalid email or password",
+        )
+    except AuthRateLimitError:
+        return _error_json(
+            status.HTTP_429_TOO_MANY_REQUESTS,
+            "UPSTREAM_RATE_LIMITED",
+            "Authentication service rate limit exceeded",
+        )
+    except AuthUpstreamTimeoutError:
+        return _error_json(
+            status.HTTP_503_SERVICE_UNAVAILABLE,
+            "AUTH_UPSTREAM_TIMEOUT",
+            "Authentication service timed out",
+        )
+    except AuthUpstreamError:
+        return _error_json(
+            status.HTTP_502_BAD_GATEWAY,
+            "AUTH_UPSTREAM_UNAVAILABLE",
+            "Authentication service unavailable",
         )
 
     _set_session_cookie(response, token, settings)
@@ -95,13 +140,10 @@ async def onboarding(
     try:
         business_response, token = await service.onboard(current_user, payload)
     except BusinessAlreadyExistsError:
-        return JSONResponse(
-            status_code=status.HTTP_409_CONFLICT,
-            content=ErrorResponse(
-                code="BUSINESS_ALREADY_EXISTS",
-                message="User already belongs to a business",
-                details=None,
-            ).model_dump(),
+        return _error_json(
+            status.HTTP_409_CONFLICT,
+            "BUSINESS_ALREADY_EXISTS",
+            "User already belongs to a business",
         )
 
     _set_session_cookie(response, token, settings)

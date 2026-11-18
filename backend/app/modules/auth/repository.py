@@ -1,4 +1,6 @@
 import uuid
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
 from dataclasses import dataclass
 
 from sqlalchemy import insert, select
@@ -23,9 +25,19 @@ class AuthRepository:
     def __init__(self, session: AsyncSession) -> None:
         self._session = session
 
+    @asynccontextmanager
+    async def _transaction(self) -> AsyncIterator[None]:
+        """Usa savepoint si ya hay una transacción activa en la sesión, o abre una nueva."""
+        if self._session.in_transaction():
+            async with self._session.begin_nested():
+                yield
+        else:
+            async with self._session.begin():
+                yield
+
     async def get_user_membership(self, user_id: uuid.UUID) -> MembershipWithBusiness | None:
         """Resuelve membresía y comercio en dos pasos respetando políticas RLS."""
-        async with self._session.begin():
+        async with self._transaction():
             await set_rls_user_context(self._session, user_id)
 
             membership_stmt = select(BusinessUser).where(BusinessUser.user_id == user_id)
@@ -52,7 +64,7 @@ class AuthRepository:
     ) -> Business:
         """Crea comercio y membresía owner en una transacción atómica bajo RLS."""
         business_id = uuid.uuid4()
-        async with self._session.begin():
+        async with self._transaction():
             await set_rls_user_context(self._session, user_id)
             await set_rls_business_context(self._session, business_id)
 
