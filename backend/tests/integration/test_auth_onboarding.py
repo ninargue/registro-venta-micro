@@ -927,3 +927,137 @@ async def test_set_rls_user_context_clears_residual_business_id(db_session: Asyn
             assert biz_guc == ""
         finally:
             await tx.rollback()
+
+
+@pytest.mark.asyncio
+async def test_auth_me_returns_session_and_rejects_unauthenticated(
+    auth_env: None,
+    db_session: AsyncSession,
+) -> None:
+    user_id = str(uuid.uuid4())
+    biz_id = str(uuid.uuid4())
+    user_no_biz = str(uuid.uuid4())
+
+    async with db_session.begin():
+        await _seed_business(db_session, biz_id, name="Panadería Sol")
+        await _seed_business_user(db_session, biz_id, user_id, role="owner")
+
+    try:
+        transport = httpx.ASGITransport(app=app)
+        async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+            unauth = await client.get("/api/v1/auth/me")
+            assert unauth.status_code == 401
+            assert unauth.json()["code"] == "UNAUTHENTICATED"
+
+            with_biz = await client.get(
+                "/api/v1/auth/me",
+                cookies=_make_jwt_cookie(
+                    user_id=user_id,
+                    email="pan@example.com",
+                    business_id=biz_id,
+                    role="owner",
+                ),
+            )
+            assert with_biz.status_code == 200
+            body_biz = with_biz.json()
+            assert body_biz["user"] == {"id": user_id, "email": "pan@example.com"}
+            assert body_biz["requires_onboarding"] is False
+            assert body_biz["business"]["id"] == biz_id
+            assert body_biz["business"]["name"] == "Panadería Sol"
+
+            without_biz = await client.get(
+                "/api/v1/auth/me",
+                cookies=_make_jwt_cookie(user_id=user_no_biz, email="nuevo@example.com"),
+            )
+            assert without_biz.status_code == 200
+            body_no_biz = without_biz.json()
+            assert body_no_biz["requires_onboarding"] is True
+            assert body_no_biz["business"] is None
+    finally:
+        await _cleanup_businesses(db_session, [biz_id])
+
+
+@pytest.mark.asyncio
+async def test_auth_logout_clears_access_and_refresh_cookies(auth_env: None) -> None:
+    transport = httpx.ASGITransport(app=app)
+    async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+        res = await client.post("/api/v1/auth/logout")
+
+    assert res.status_code == 204
+    set_cookies = res.headers.get_list("set-cookie")
+    assert any("access_token=" in header and "Max-Age=0" in header for header in set_cookies)
+    assert any("refresh_token=" in header and "Max-Age=0" in header for header in set_cookies)
+    assert all("HttpOnly" in header and "SameSite=strict" in header for header in set_cookies)
+
+
+@pytest.mark.asyncio
+async def test_auth_refresh_renews_tokens_and_rejects_invalid_or_access_token(
+    auth_env: None,
+    monkeypatch: pytest.MonkeyPatch,
+    db_session: AsyncSession,
+) -> None:
+    user_id = str(uuid.uuid4())
+    biz_id = str(uuid.uuid4())
+
+    async with db_session.begin():
+        await _seed_business(db_session, biz_id, name="Kiosco Refresh")
+        await _seed_business_user(db_session, biz_id, user_id, role="owner")
+
+    _patch_supabase_auth(
+        monkeypatch,
+        lambda _req: httpx.Response(
+            status_code=200,
+            json={"user": {"id": user_id, "email": "refresh@example.com"}},
+        ),
+    )
+
+    try:
+        transport = httpx.ASGITransport(app=app)
+        async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+            # 1. Login emite tanto access_token como refresh_token
+            login_res = await client.post(
+                "/api/v1/auth/login",
+                json={"email": "refresh@example.com", "password": "secret"},
+            )
+            assert login_res.status_code == 200
+            assert "access_token" in login_res.cookies
+            assert "refresh_token" in login_res.cookies
+            refresh_cookie = login_res.cookies["refresh_token"]
+            access_cookie = login_res.cookies["access_token"]
+
+            # 2. Refresh sin cookie -> 401
+            client.cookies.clear()
+            no_cookie_res = await client.post("/api/v1/auth/refresh")
+            assert no_cookie_res.status_code == 401
+            assert no_cookie_res.json()["code"] == "UNAUTHENTICATED"
+
+            # 3. Usar access_token como refresh_token -> 401
+            client.cookies.clear()
+            access_as_refresh = await client.post(
+                "/api/v1/auth/refresh",
+                cookies={"refresh_token": access_cookie},
+            )
+            assert access_as_refresh.status_code == 401
+
+            # 4. Usar refresh_token como access_token en /me -> 401
+            client.cookies.clear()
+            refresh_as_access = await client.get(
+                "/api/v1/auth/me",
+                cookies={"access_token": refresh_cookie},
+            )
+            assert refresh_as_access.status_code == 401
+
+            # 5. Refresh válido -> 200 con nuevas cookies y LoginResponse
+            client.cookies.clear()
+            refresh_res = await client.post(
+                "/api/v1/auth/refresh",
+                cookies={"refresh_token": refresh_cookie},
+            )
+            assert refresh_res.status_code == 200
+            assert "access_token" in refresh_res.cookies
+            assert "refresh_token" in refresh_res.cookies
+            body = refresh_res.json()
+            assert body["requires_onboarding"] is False
+            assert body["business"]["id"] == biz_id
+    finally:
+        await _cleanup_businesses(db_session, [biz_id])

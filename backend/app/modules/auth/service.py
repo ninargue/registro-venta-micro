@@ -5,8 +5,13 @@ import httpx
 from sqlalchemy.exc import IntegrityError
 
 from app.core.config import Settings
-from app.core.security import CurrentUser, RoleType, create_access_token
-from app.modules.auth.repository import AuthRepository
+from app.core.security import (
+    CurrentUser,
+    RoleType,
+    create_access_token,
+    create_refresh_token,
+)
+from app.modules.auth.repository import AuthRepository, MembershipWithBusiness
 from app.modules.auth.schemas import (
     BusinessResponse,
     BusinessSummary,
@@ -129,35 +134,20 @@ class AuthService:
         resolved_email = user_data.get("email")
         return user_id, str(resolved_email) if isinstance(resolved_email, str) else email
 
-    async def login(self, payload: LoginRequest) -> tuple[LoginResponse, str]:
-        """Autentica contra Supabase Auth, resuelve membresía y emite JWT."""
-        user_id, email = await self._authenticate_supabase(payload.email, payload.password)
-        membership = await self._repository.get_user_membership(user_id)
-
+    def _build_session_response(
+        self,
+        user_id: uuid.UUID,
+        email: str,
+        membership: MembershipWithBusiness | None,
+    ) -> LoginResponse:
         if membership is None:
-            token = create_access_token(
-                user_id=user_id,
-                email=email,
-                business_id=None,
-                role=None,
-                settings=self._settings,
-            )
-            response = LoginResponse(
+            return LoginResponse(
                 user=UserPayload(id=user_id, email=email),
                 requires_onboarding=True,
                 business=None,
             )
-            return response, token
-
         role = cast(RoleType, membership.role)
-        token = create_access_token(
-            user_id=user_id,
-            email=email,
-            business_id=membership.business.id,
-            role=role,
-            settings=self._settings,
-        )
-        response = LoginResponse(
+        return LoginResponse(
             user=UserPayload(id=user_id, email=email),
             requires_onboarding=False,
             business=BusinessSummary(
@@ -168,14 +158,52 @@ class AuthService:
                 role=role,
             ),
         )
-        return response, token
+
+    def _issue_session_tokens(
+        self,
+        user_id: uuid.UUID,
+        email: str,
+        membership: MembershipWithBusiness | None,
+    ) -> tuple[LoginResponse, str, str]:
+        login_response = self._build_session_response(user_id, email, membership)
+        business_id = membership.business.id if membership is not None else None
+        role = cast(RoleType, membership.role) if membership is not None else None
+        access_token = create_access_token(
+            user_id=user_id,
+            email=email,
+            business_id=business_id,
+            role=role,
+            settings=self._settings,
+        )
+        refresh_token = create_refresh_token(
+            user_id=user_id,
+            email=email,
+            settings=self._settings,
+        )
+        return login_response, access_token, refresh_token
+
+    async def login(self, payload: LoginRequest) -> tuple[LoginResponse, str, str]:
+        """Autentica contra Supabase Auth, resuelve membresía y emite JWTs de sesión."""
+        user_id, email = await self._authenticate_supabase(payload.email, payload.password)
+        membership = await self._repository.get_user_membership(user_id)
+        return self._issue_session_tokens(user_id, email, membership)
+
+    async def get_me(self, current_user: CurrentUser) -> LoginResponse:
+        """Devuelve la identidad y estado de membresía actual del usuario autenticado."""
+        membership = await self._repository.get_user_membership(current_user.user_id)
+        return self._build_session_response(current_user.user_id, current_user.email, membership)
+
+    async def refresh(self, refresh_user: CurrentUser) -> tuple[LoginResponse, str, str]:
+        """Renueva access_token y refresh_token consultando la membresía vigente."""
+        membership = await self._repository.get_user_membership(refresh_user.user_id)
+        return self._issue_session_tokens(refresh_user.user_id, refresh_user.email, membership)
 
     async def onboard(
         self,
         current_user: CurrentUser,
         payload: OnboardingRequest,
-    ) -> tuple[BusinessResponse, str]:
-        """Crea comercio único para usuario autenticado y refresca JWT."""
+    ) -> tuple[BusinessResponse, str, str]:
+        """Crea comercio único para usuario autenticado y refresca JWTs."""
         if current_user.business_id is not None:
             raise BusinessAlreadyExistsError("User already belongs to a business")
 
@@ -194,11 +222,16 @@ class AuthService:
                 raise BusinessAlreadyExistsError("User already belongs to a business") from exc
             raise
 
-        token = create_access_token(
+        access_token = create_access_token(
             user_id=current_user.user_id,
             email=current_user.email,
             business_id=business.id,
             role="owner",
+            settings=self._settings,
+        )
+        refresh_token = create_refresh_token(
+            user_id=current_user.user_id,
+            email=current_user.email,
             settings=self._settings,
         )
         response = BusinessResponse(
@@ -208,4 +241,4 @@ class AuthService:
             timezone=business.timezone,
             created_at=business.created_at,
         )
-        return response, token
+        return response, access_token, refresh_token

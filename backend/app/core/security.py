@@ -43,8 +43,28 @@ def create_access_token(
         "email": email,
         "business_id": str(business_id) if business_id is not None else None,
         "role": role,
+        "token_type": "access",
         "iat": now,
         "exp": now + settings.access_token_expire_minutes * 60,
+    }
+    return jwt.encode(payload, secret, algorithm=settings.jwt_algorithm)
+
+
+def create_refresh_token(
+    *,
+    user_id: uuid.UUID,
+    email: str,
+    settings: Settings,
+) -> str:
+    """Firma un JWT de refresh con expiración configurada en días."""
+    secret = _require_jwt_secret(settings)
+    now = int(time.time())
+    payload: dict[str, Any] = {
+        "sub": str(user_id),
+        "email": email,
+        "token_type": "refresh",
+        "iat": now,
+        "exp": now + settings.refresh_token_expire_days * 86400,
     }
     return jwt.encode(payload, secret, algorithm=settings.jwt_algorithm)
 
@@ -61,6 +81,9 @@ def decode_access_token(token: str, settings: Settings) -> CurrentUser:
         )
         sub = payload.get("sub")
         email = payload.get("email")
+        token_type = payload.get("token_type")
+        if token_type == "refresh":
+            raise ValueError("Refresh token cannot be used as access token")
         raw_business_id = payload.get("business_id")
         raw_role = payload.get("role")
         if not isinstance(sub, str) or not isinstance(email, str):
@@ -90,6 +113,53 @@ def decode_access_token(token: str, settings: Settings) -> CurrentUser:
         business_id=business_id,
         role=role,
     )
+
+
+def decode_refresh_token(token: str, settings: Settings) -> CurrentUser:
+    """Valida y decodifica el JWT de refresh; lanza 401 si es inválido, expiró o no es refresh."""
+    secret = _require_jwt_secret(settings)
+    try:
+        payload = jwt.decode(
+            token,
+            secret,
+            algorithms=[settings.jwt_algorithm],
+            options={"require": ["sub", "exp", "iat"]},
+        )
+        sub = payload.get("sub")
+        email = payload.get("email")
+        token_type = payload.get("token_type")
+        if not isinstance(sub, str) or not isinstance(email, str) or token_type != "refresh":
+            raise ValueError("Invalid refresh token claims")
+        user_id = uuid.UUID(sub)
+    except (jwt.PyJWTError, ValueError) as exc:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail={
+                "code": "UNAUTHENTICATED",
+                "message": "Invalid or expired refresh token",
+                "details": None,
+            },
+        ) from exc
+
+    return CurrentUser(user_id=user_id, email=email)
+
+
+def get_refresh_user(
+    request: Request,
+    settings: Settings = Depends(get_settings),
+) -> CurrentUser:
+    """Extrae y valida el refresh token desde la cookie HttpOnly."""
+    token = request.cookies.get(settings.refresh_cookie_name)
+    if not token:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail={
+                "code": "UNAUTHENTICATED",
+                "message": "Refresh token required",
+                "details": None,
+            },
+        )
+    return decode_refresh_token(token, settings)
 
 
 def get_current_user(

@@ -28,7 +28,9 @@ class Settings(BaseSettings):
     jwt_secret_key: str | None = None
     jwt_algorithm: Literal["HS256", "HS384", "HS512"] = "HS256"
     access_token_expire_minutes: int = 15
+    refresh_token_expire_days: int = 7
     cookie_name: str = "access_token"
+    refresh_cookie_name: str = "refresh_token"
     cookie_secure: bool = True
 
     # Rate limiting para /api/v1/auth/login.
