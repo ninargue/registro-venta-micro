@@ -41,5 +41,6 @@
   "attempt": null,
   "consecutive_same_signature": 1,
   "last_signature": "7ffc3df080a9",
-  "loop_detected": false
+  "loop_detected": false,
+  "promoted": true
 }
