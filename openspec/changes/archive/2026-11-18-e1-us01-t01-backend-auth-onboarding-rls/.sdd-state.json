@@ -16,12 +16,12 @@
   ],
   "backend_snapshots": {
     "tests": {
-      "captured_at": "2026-11-18T04:09:20.714Z",
+      "captured_at": "2026-11-18T12:58:22.984Z",
       "file_count": 5,
-      "digest": "980306a45b7177abe40f331d730ccf752cb2696baaafbb986c8f1cfed86872d4",
+      "digest": "619db3f44f4d968b62e6652eec0a09b183fab74536c7c9593e7e33e45cfb312c",
       "files": {
         "backend/tests/conftest.py": "840e646a51ccf0c1e2faaac0b3368a784570bae9190616e6003720a66095fcfd",
-        "backend/tests/integration/test_auth_onboarding.py": "a3fd27589272aba1b8e2f8f53426176a26f73a591cab19949b39f5875d62cc79",
+        "backend/tests/integration/test_auth_onboarding.py": "3dd52ada45bccd759187b179defb746b8cdb3eea7eadecaeb9eeb763f2bf2d3c",
         "backend/tests/integration/test_db_businesses.py": "87a4ab235af69d110f63c242bc1ed5c4567bd77aa9044af7ce9e7706e13cb951",
         "backend/tests/unit/test_auth_schemas.py": "26e3a3c991cbaa16beb3594aed460cad09d2e705dc4ddb3197aba45dbcf72fc7",
         "backend/tests/unit/test_health.py": "c4d4e5c25bd5dbb99976e8a93f02971712e1afb6ed42cc8da876b0e220935944"
@@ -44,5 +44,6 @@
   },
   "consecutive_same_signature": 1,
   "last_signature": "53a191ac06be",
-  "loop_detected": false
+  "loop_detected": false,
+  "promoted": true
 }

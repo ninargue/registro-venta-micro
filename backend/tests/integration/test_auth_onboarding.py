@@ -2,14 +2,16 @@ import asyncio
 import importlib.util
 import time
 import uuid
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
+from contextlib import contextmanager
 from typing import Any
 
 import httpx
 import jwt
 import pytest
 from fastapi import Depends, FastAPI
-from sqlalchemy import text
+from sqlalchemy import event, text
+from sqlalchemy.engine import Engine
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings
@@ -119,6 +121,27 @@ async def _cleanup_businesses(db_session: AsyncSession, business_ids: list[str])
             )
 
 
+@contextmanager
+def _capture_sql_statements() -> Iterator[list[tuple[str, str]]]:
+    statements: list[tuple[str, str]] = []
+
+    def _listener(
+        conn: Any,
+        cursor: Any,
+        statement: str,
+        parameters: Any,
+        context: Any,
+        executemany: bool,
+    ) -> None:
+        statements.append((statement.lower(), repr(parameters)))
+
+    event.listen(Engine, "before_cursor_execute", _listener)
+    try:
+        yield statements
+    finally:
+        event.remove(Engine, "before_cursor_execute", _listener)
+
+
 @pytest.mark.asyncio
 async def test_login_success_with_existing_business(
     auth_env: None,
@@ -148,13 +171,27 @@ async def test_login_success_with_existing_business(
 
     try:
         transport = httpx.ASGITransport(app=app)
-        async with httpx.AsyncClient(transport=transport, base_url="https://test") as client:
-            response = await client.post(
-                "/api/v1/auth/login",
-                json={"email": email, "password": "valid-password"},
-            )
+        with _capture_sql_statements() as sql_log:
+            async with httpx.AsyncClient(transport=transport, base_url="https://test") as client:
+                response = await client.post(
+                    "/api/v1/auth/login",
+                    json={"email": email, "password": "valid-password"},
+                )
 
         assert response.status_code == 200
+        bu_select_idx = next(
+            i for i, (stmt, _) in enumerate(sql_log) if "from business_users" in stmt
+        )
+        biz_select_idx = next(i for i, (stmt, _) in enumerate(sql_log) if "from businesses" in stmt)
+        assert any("set local role app_api" in stmt for stmt, _ in sql_log[:bu_select_idx])
+        assert any(
+            "set_config" in stmt and "app.current_user_id" in stmt and user_id in params
+            for stmt, params in sql_log[:bu_select_idx]
+        )
+        assert any(
+            "set_config" in stmt and "app.current_business_id" in stmt and business_id in params
+            for stmt, params in sql_log[:biz_select_idx]
+        )
         body = response.json()
         assert body["requires_onboarding"] is False
         assert body["user"] == {"id": user_id, "email": email}
@@ -268,19 +305,35 @@ async def test_onboarding_success_with_country_timezone_resolution(
 
     try:
         transport = httpx.ASGITransport(app=app)
-        async with httpx.AsyncClient(
-            transport=transport,
-            base_url="http://test",
-            cookies=_make_jwt_cookie(user_id=user_id, email=email),
-        ) as client:
-            response = await client.post(
-                "/api/v1/auth/onboarding",
-                json={"name": "Kiosco Sol", "country": "AR"},
-            )
+        with _capture_sql_statements() as sql_log:
+            async with httpx.AsyncClient(
+                transport=transport,
+                base_url="http://test",
+                cookies=_make_jwt_cookie(user_id=user_id, email=email),
+            ) as client:
+                response = await client.post(
+                    "/api/v1/auth/onboarding",
+                    json={"name": "Kiosco Sol", "country": "AR"},
+                )
 
         assert response.status_code == 201
         body = response.json()
         created_business_id = body["id"]
+
+        biz_insert_idx = next(
+            i for i, (stmt, _) in enumerate(sql_log) if "insert into businesses" in stmt
+        )
+        assert any("set local role app_api" in stmt for stmt, _ in sql_log[:biz_insert_idx])
+        assert any(
+            "set_config" in stmt and "app.current_user_id" in stmt and user_id in params
+            for stmt, params in sql_log[:biz_insert_idx]
+        )
+        assert any(
+            "set_config" in stmt
+            and "app.current_business_id" in stmt
+            and created_business_id in params
+            for stmt, params in sql_log[:biz_insert_idx]
+        )
         assert uuid.UUID(created_business_id)
         assert body["name"] == "Kiosco Sol"
         assert body["country"] == "AR"
@@ -373,6 +426,25 @@ async def test_onboarding_unauthenticated_returns_401(auth_env: None) -> None:
         )
         assert res_expired.status_code == 401
 
+        wrong_sig_token = jwt.encode(
+            {
+                "sub": str(uuid.uuid4()),
+                "email": "attacker@example.com",
+                "business_id": None,
+                "role": None,
+                "iat": int(time.time()),
+                "exp": int(time.time()) + 900,
+            },
+            "wrong-jwt-secret-key-not-matching-server",
+            algorithm="HS256",
+        )
+        res_wrong_sig = await client.post(
+            "/api/v1/auth/onboarding",
+            json=payload,
+            cookies={"access_token": wrong_sig_token},
+        )
+        assert res_wrong_sig.status_code == 401
+
 
 @pytest.mark.asyncio
 async def test_onboarding_duplicate_business_returns_409(
@@ -400,6 +472,7 @@ async def test_onboarding_duplicate_business_returns_409(
             )
 
         assert response.status_code == 409
+        assert response.json()["code"] == "BUSINESS_ALREADY_EXISTS"
 
         async with db_session.begin():
             count_bu = (
@@ -512,7 +585,10 @@ async def test_rls_valid_tenant_context_and_cross_tenant_isolation(
     auth_env: None,
     db_session: AsyncSession,
 ) -> None:
-    """Scenarios: Valid tenant context set on transactional session + Cross-tenant isolation."""
+    """Scenarios: Valid tenant context set on transactional session.
+
+    Also covers: Cross-tenant database isolation enforced under app_api.
+    """
     if importlib.util.find_spec("app.core.db") is None:
         pytest.fail("Tenant DB dependency app.core.db.get_tenant_db is not implemented yet")
     from app.core.db import get_tenant_db
@@ -615,3 +691,108 @@ async def test_rls_request_lacking_business_context_blocked(auth_env: None) -> N
             cookies=pending_onboarding_cookie,
         )
         assert no_biz_res.status_code == 403
+
+
+@pytest.mark.asyncio
+async def test_onboarding_with_existing_business_in_jwt_returns_409_without_insert(
+    auth_env: None,
+    db_session: AsyncSession,
+) -> None:
+    """Guard: JWT already carrying business_id is rejected with 409 before DB insert."""
+    user_id = str(uuid.uuid4())
+    jwt_business_id = str(uuid.uuid4())
+    accidentally_created_id: str | None = None
+
+    try:
+        transport = httpx.ASGITransport(app=app)
+        with _capture_sql_statements() as sql_log:
+            async with httpx.AsyncClient(
+                transport=transport,
+                base_url="http://test",
+                cookies=_make_jwt_cookie(
+                    user_id=user_id,
+                    business_id=jwt_business_id,
+                    role="owner",
+                ),
+            ) as client:
+                response = await client.post(
+                    "/api/v1/auth/onboarding",
+                    json={"name": "Negocio Duplicado JWT", "country": "AR"},
+                )
+
+        if response.status_code == 201:
+            accidentally_created_id = response.json().get("id")
+
+        assert response.status_code == 409
+        assert response.json()["code"] == "BUSINESS_ALREADY_EXISTS"
+        assert not any("insert into businesses" in stmt for stmt, _ in sql_log)
+    finally:
+        if accidentally_created_id:
+            await _cleanup_businesses(db_session, [accidentally_created_id])
+
+
+@pytest.mark.asyncio
+async def test_rls_user_db_context_and_isolation(
+    auth_env: None,
+    db_session: AsyncSession,
+) -> None:
+    """Scenario: get_user_db sets app_api + app.current_user_id and isolates business_users."""
+    if importlib.util.find_spec("app.core.db") is None:
+        pytest.fail("User DB dependency app.core.db.get_user_db is not implemented yet")
+    from app.core.db import get_user_db
+
+    user_a = str(uuid.uuid4())
+    user_b = str(uuid.uuid4())
+    biz_a = str(uuid.uuid4())
+    biz_b = str(uuid.uuid4())
+
+    async with db_session.begin():
+        await _seed_business(db_session, biz_a, name="Negocio User A")
+        await _seed_business(db_session, biz_b, name="Negocio User B")
+        await _seed_business_user(db_session, biz_a, user_a, role="owner")
+        await _seed_business_user(db_session, biz_b, user_b, role="owner")
+
+    probe_app = FastAPI()
+
+    @probe_app.get("/_test/user-probe")
+    async def _user_probe(db: AsyncSession = Depends(get_user_db)) -> dict[str, Any]:
+        ctx_row = (
+            await db.execute(
+                text(
+                    "SELECT current_user, "
+                    "current_setting('app.current_user_id', true), "
+                    "current_setting('app.current_business_id', true)"
+                )
+            )
+        ).one()
+        memberships = [
+            [str(r[0]), str(r[1])]
+            for r in (
+                await db.execute(text("SELECT business_id, user_id FROM business_users"))
+            ).fetchall()
+        ]
+        return {
+            "role": ctx_row[0],
+            "user_id": ctx_row[1],
+            "business_id": ctx_row[2],
+            "memberships": memberships,
+        }
+
+    try:
+        transport = httpx.ASGITransport(app=probe_app)
+        async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+            unauth_res = await client.get("/_test/user-probe")
+            assert unauth_res.status_code == 401
+
+            auth_res = await client.get(
+                "/_test/user-probe",
+                cookies=_make_jwt_cookie(user_id=user_a, business_id=None, role=None),
+            )
+
+        assert auth_res.status_code == 200
+        data = auth_res.json()
+        assert data["role"] == "app_api"
+        assert data["user_id"] == user_a
+        assert data["memberships"] == [[biz_a, user_a]]
+    finally:
+        await _cleanup_businesses(db_session, [biz_a, biz_b])
