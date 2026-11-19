@@ -5,6 +5,7 @@ export default mergeConfig(
   viteConfig,
   defineConfig({
     test: {
+      globals: true,
       environment: "jsdom",
       // worker_threads en lugar de forks: evita el timeout de arranque del
       // worker de forks bajo contencion de CPU, sin desactivar tests.
