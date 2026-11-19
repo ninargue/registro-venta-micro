@@ -1453,9 +1453,9 @@ async def test_get_product_names_by_ids_includes_business_id_in_sql(
             if "products.name" in stmt and stmt.strip().startswith("select")
         ]
         assert len(names_select_stmts) >= 1, "get_product_names_by_ids must emit a SELECT"
-        assert all(
-            "business_id" in stmt for stmt in names_select_stmts
-        ), "Every products.name SELECT must filter by business_id at application layer"
+        assert all("business_id" in stmt for stmt in names_select_stmts), (
+            "Every products.name SELECT must filter by business_id at application layer"
+        )
     finally:
         await _cleanup_businesses(db_session, [business_id])
 
