@@ -34,6 +34,7 @@ Skill-only conventions:
 - **VS Code workspace:** `<parent of main repo>/opma-projects.code-workspace`. Skip it if it doesn't exist.
 - **Reviewers:** none. Use `--assignee @me` only.
 - **Temp files:** the session scratchpad, or `mktemp`. Never `/tmp` (Windows / Git Bash).
+- **Issue status transitions (GitHub Projects):** when an issue belongs to a GitHub Project (`gh issue view <n> --json projectItems`), transition its `Status` field at each lifecycle milestone using `gh project field-list` + `gh project item-edit` (`Todo` → `In Progress` → `In Review` if available → `Done`). If the issue is not in a project or the `project` token scope is missing, skip with a brief note.
 
 ---
 
@@ -93,6 +94,8 @@ gh pr create --draft --base <source-branch> --head <branch-name> \
   --title "<title per commit convention>" --body-file "<body-file>" --assignee @me
 ```
 
+Transition the linked issue's GitHub Project `Status` to **`In Progress`** (if it exists in a project and is not already `In Progress`).
+
 ### 6 — Summary
 
 ```
@@ -100,7 +103,7 @@ Rama      : <branch-name>  (desde origin/<source-branch>)
 Worktree  : <worktree-path>
 VS Code   : workspace actualizado | omitido
 PR        : <pr-url>  [Draft · base: <source-branch>]
-Issue     : <issue-url>
+Issue     : <issue-url>  (Status: In Progress)
 ```
 
 ---
@@ -121,7 +124,8 @@ When every acceptance criterion is covered and the user confirms the development
 
 1. Update the draft PR's body with a complete description of the changes: `gh pr edit <n> --body-file <file>`, following the PR template.
 2. Run the `adversarial-reviewer` subagent on the whole PR, passing the PR number, the issue number and the spec path if there is one. This happens only here, once development is finished, never after each commit or push. If its findings lead to more commits, don't rerun it unless the user asks. It writes its report to `docs/reviews/` (git-ignored) and returns the path.
-3. Reply only with the PR URL and the review report path. Don't repeat the summary in chat: the session will be lost, the PR won't.
+3. If the PR is marked ready for review and the issue's GitHub Project has an `In Review` (or equivalent) `Status` option, transition the issue to it; otherwise keep `In Progress`.
+4. Reply only with the PR URL and the review report path. Don't repeat the summary in chat: the session will be lost, the PR won't.
 
 The PR then moves to the Cleanup flow once the user asks to merge it.
 
@@ -151,6 +155,8 @@ Use the strategy CONTRIBUTING gives for that base, and confirm with the user bef
 
 Compare each acceptance criterion in the issue with what the PR delivered. Create follow-up issues for anything missing, then post on the issue (even if `Closes #` already closed it) with `gh issue comment <n> --body-file <file>`, using the sections `## Verificación de criterios de aceptación`, `## Cambios adicionales (fuera de alcance)` and `## Pendientes derivados`.
 
+If the PR targeted a non-default branch (so `Closes #<n>` did not auto-close it) and all criteria are met, close the issue with `gh issue close <n>`. Then transition the issue's GitHub Project `Status` to **`Done`**.
+
 ### C4 — Remove the worktree and branches
 
 ```bash
@@ -170,7 +176,7 @@ Follow CONTRIBUTING → *Tag y release en GitHub* and *Backport a `develop`*. Co
 
 ```
 PR        : <pr-url>  (merged · <estrategia>)
-Issue     : #<n>  comentario de verificación publicado
+Issue     : #<n>  comentario de verificación publicado · Status: Done
 Worktree  : eliminado  (<worktree-path>)
 VS Code   : workspace actualizado | omitido
 Rama      : local eliminada, remota eliminada por GitHub
