@@ -2,13 +2,13 @@
 
 ## 1. Veredicto de Falsabilidad
 
-- **Estado:** `[TESTS MAYORMENTE BLINDADOS — 2 BRECHAS MENORES DETECTADAS]`
+- **Estado:** `[SUITE COMPLETAMENTE BLINDADA — BRECHAS CERRADAS]`
 - **Modo de Ejecución:** `Catalogo Canonico M1-M5 (analisis estatico/manual — mutation_cmd: none)`
 - **Tests Auditados:**
   - `backend/tests/unit/test_sales_schemas.py`
   - `backend/tests/integration/test_sales_api.py`
-- **Tasa de Mutantes Eliminados:** `13/15 evaluados` (`87%`)
-- **Mutantes Vivos:** 2 (brechas de cobertura de frontera exacta y filtro de nombres por tenant sin asercion directa)
+- **Tasa de Mutantes Eliminados:** `15/15 evaluados` (`100%`)
+- **Mutantes Vivos:** 0 (brechas M3c y M4b/M4c cerradas en commit de hardening-gaps)
 
 ---
 
@@ -35,9 +35,9 @@
 
 ---
 
-## 3. Detalle de Mutantes Vivos y Brechas de Falsabilidad
+## 3. Detalle de Mutantes — Brechas Cerradas
 
-### Brecha 1 — M3c: Filtro `business_id` en `get_product_names_by_ids` sin asercion de aplicacion directa
+### Brecha 1 — M3c: Filtro `business_id` en `get_product_names_by_ids` sin asercion de aplicacion directa (CERRADA)
 
 **Mutacion viva:** Eliminar `Product.business_id == business_id` del SELECT en `CatalogRepository.get_product_names_by_ids` (`backend/app/modules/catalog/repository.py:153-154`).
 
@@ -50,7 +50,7 @@ Agregar un caso en `test_cross_tenant_or_missing_product_rejected_404_and_body_b
 
 ---
 
-### Brecha 2 — M4b/M4c: Frontera exacta `== MAX_NUMERIC_12_2` para acumulacion de total y deduccion
+### Brecha 2 — M4b/M4c: Frontera exacta `== MAX_NUMERIC_12_2` para acumulacion de total y deduccion (CERRADA)
 
 **Mutacion viva (doble):**
 - Cambiar `total_amount > MAX_NUMERIC_12_2` a `total_amount >= MAX_NUMERIC_12_2` en `service.py:206` (acumulacion por linea).
@@ -72,6 +72,9 @@ Agregar dos subcasos al test `test_reject_stock_numeric_12_2_overflow_and_allow_
 
 La suite Backend-TDD del cambio `issue-68-hardening-ventas-backend` es **robusta y falsable para las rutas criticas de negocio**: validacion de entrada (M1), autenticacion JWT y RBAC (M2), aislamiento cross-tenant en lock y deduccion (M3a/M3b), guardas H1/H2/H3 de concurrencia e idempotencia (M4a/M4c/M4d/M4e/M4f), y mapeado correcto de errores a codigos HTTP (M5a/M5b).
 
-Los **dos mutantes vivos** no representan vectores criticos de seguridad inmediata (el filtro `business_id` en nombres esta protegido por RLS; los limites exactos de MAX son casos de borde improbables en produccion), pero exponen ausencia de cobertura en la capa de aplicacion que debe corregirse antes de `opsx:archive` para garantizar falsabilidad completa de la suite.
+Los **dos mutantes previamente vivos** fueron eliminados mediante los refuerzos de test agregados en el commit de hardening-gaps:
 
-**Cambio listo para `opsx:archive` condicionado** a que `backend-qa-agent` agregue en `backend/tests/integration/test_sales_api.py` los dos refuerzos descritos en las Brechas 1 y 2.
+- **M3c cerrado:** nuevo test `test_get_product_names_by_ids_includes_business_id_in_sql` captura el SQL de `get_product_names_by_ids` via `_capture_sql_statements` y verifica que `business_id` aparece en el SELECT a nivel de aplicacion.
+- **M4b/M4c cerrados:** subcasos 4 y 5 en `test_reject_stock_numeric_12_2_overflow_and_allow_min_boundary` verifican que `total_amount == MAX_NUMERIC_12_2` y `deduccion_acumulada == MAX_NUMERIC_12_2` retornan 201 (el overflow solo se activa al superar MAX, no al igualarlo).
+
+**Cambio completamente listo para merge.**

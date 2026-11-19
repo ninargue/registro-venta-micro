@@ -1410,6 +1410,57 @@ async def test_cross_tenant_or_missing_product_rejected_404_and_body_business_id
 
 
 @pytest.mark.asyncio
+async def test_get_product_names_by_ids_includes_business_id_in_sql(
+    sales_auth_env: None,
+    db_session: AsyncSession,
+) -> None:
+    """M3c defense-in-depth: get_product_names_by_ids includes business_id
+    filter in the SQL SELECT at application layer, independent of RLS.
+    """
+    user_id = str(uuid.uuid4())
+    business_id = str(uuid.uuid4())
+
+    async with db_session.begin():
+        await _seed_business(db_session, business_id)
+        await _seed_business_user(db_session, business_id, user_id, role="owner")
+        p1 = await _seed_product(
+            db_session,
+            business_id=business_id,
+            name="Producto Nombres SQL",
+            sale_price=Decimal("100.00"),
+            stock=Decimal("10.00"),
+        )
+
+    cookies = _make_jwt_cookie(user_id=user_id, business_id=business_id, role="owner")
+    try:
+        transport = httpx.ASGITransport(app=app)
+        with _capture_sql_statements() as sql_log:
+            async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+                resp = await client.post(
+                    SALES_URL,
+                    cookies=cookies,
+                    json={
+                        "client_id": str(uuid.uuid4()),
+                        "items": [{"product_id": p1, "quantity": "1.00"}],
+                        "payments": [{"payment_method": "cash", "amount": "100.00"}],
+                    },
+                )
+
+        assert resp.status_code == 201
+        names_select_stmts = [
+            stmt
+            for stmt, _ in sql_log
+            if "products.name" in stmt and stmt.strip().startswith("select")
+        ]
+        assert len(names_select_stmts) >= 1, "get_product_names_by_ids must emit a SELECT"
+        assert all(
+            "business_id" in stmt for stmt in names_select_stmts
+        ), "Every products.name SELECT must filter by business_id at application layer"
+    finally:
+        await _cleanup_businesses(db_session, [business_id])
+
+
+@pytest.mark.asyncio
 async def test_openapi_documents_sales_routes_and_schemas() -> None:
     """Scenario: Sales route and schemas documented in OpenAPI schema."""
     transport = httpx.ASGITransport(app=app)
@@ -1660,6 +1711,7 @@ async def test_reject_stock_numeric_12_2_overflow_and_allow_min_boundary(
 ) -> None:
     """Scenario H2: Rejection of aggregated stock deduction or resulting
     negative stock overflowing numeric(12,2), while allowing -9999999999.99.
+    Also verifies that the exact boundary value 9999999999.99 is accepted (201).
     """
     user_id = str(uuid.uuid4())
     business_id = str(uuid.uuid4())
@@ -1680,6 +1732,20 @@ async def test_reject_stock_numeric_12_2_overflow_and_allow_min_boundary(
             name="Stock Negativo",
             sale_price=Decimal("0.01"),
             stock=Decimal("-1.00"),
+        )
+        p_max_price = await _seed_product(
+            db_session,
+            business_id=business_id,
+            name="Precio Maximo",
+            sale_price=Decimal("9999999999.99"),
+            stock=Decimal("10.00"),
+        )
+        p_one = await _seed_product(
+            db_session,
+            business_id=business_id,
+            name="Precio Uno",
+            sale_price=Decimal("1.00"),
+            stock=Decimal("10.00"),
         )
 
     cookies = _make_jwt_cookie(user_id=user_id, business_id=business_id, role="owner")
@@ -1719,10 +1785,35 @@ async def test_reject_stock_numeric_12_2_overflow_and_allow_min_boundary(
                     "payments": [{"payment_method": "cash", "amount": "99999999.99"}],
                 },
             )
+            # 4) Exact boundary: total_amount == MAX_NUMERIC_12_2 must return 201 (not overflow)
+            resp_total_max = await client.post(
+                SALES_URL,
+                cookies=cookies,
+                json={
+                    "client_id": str(uuid.uuid4()),
+                    "items": [{"product_id": p_max_price, "quantity": "1.00"}],
+                    "payments": [{"payment_method": "cash", "amount": "9999999999.99"}],
+                },
+            )
+            # 5) Exact boundary: accumulated deduction == MAX_NUMERIC_12_2 must return 201
+            resp_deduction_max = await client.post(
+                SALES_URL,
+                cookies=cookies,
+                json={
+                    "client_id": str(uuid.uuid4()),
+                    "items": [
+                        {"product_id": p_one, "quantity": "4999999999.99"},
+                        {"product_id": p_one, "quantity": "5000000000.00"},
+                    ],
+                    "payments": [{"payment_method": "cash", "amount": "9999999999.99"}],
+                },
+            )
 
         _assert_uniform_error_response(resp_agg_overflow, 422, "VALIDATION_ERROR")
         _assert_uniform_error_response(resp_neg_overflow, 422, "VALIDATION_ERROR")
         assert resp_boundary.status_code == 201
+        assert resp_total_max.status_code == 201
+        assert resp_deduction_max.status_code == 201
 
         async with db_session.begin():
             rows = (
