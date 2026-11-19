@@ -23,6 +23,7 @@ export type SupportedCountryCode = CountryOption["code"];
 export type SupportedTimezone = CountryOption["defaultTimezone"];
 
 export const COUNTRY_TIMEZONES: Record<SupportedCountryCode, SupportedTimezone> =
-  Object.fromEntries(
-    SUPPORTED_COUNTRIES.map((c) => [c.code, c.defaultTimezone]),
-  ) as Record<SupportedCountryCode, SupportedTimezone>;
+  Object.fromEntries(SUPPORTED_COUNTRIES.map((c) => [c.code, c.defaultTimezone])) as Record<
+    SupportedCountryCode,
+    SupportedTimezone
+  >;
