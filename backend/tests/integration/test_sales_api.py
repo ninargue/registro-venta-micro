@@ -12,7 +12,7 @@ import jwt
 import pytest
 from sqlalchemy import event, text
 from sqlalchemy.engine import Engine
-from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 
 from app.core.config import get_settings
 from app.main import app
@@ -1424,7 +1424,7 @@ async def test_openapi_documents_sales_routes_and_schemas() -> None:
     assert "sales" in path_item["post"]["tags"]
 
     post_responses = set(path_item["post"]["responses"].keys())
-    assert {"200", "201", "401", "403", "404", "422"}.issubset(post_responses)
+    assert {"200", "201", "401", "403", "404", "409", "422"}.issubset(post_responses)
 
     schemas = spec["components"]["schemas"]
     for schema_name in (
@@ -1438,7 +1438,666 @@ async def test_openapi_documents_sales_routes_and_schemas() -> None:
     ):
         assert schema_name in schemas
 
+    assert schemas["SaleItemCreate"]["properties"]["quantity"].get("type") == "string"
+    assert "anyOf" not in schemas["SaleItemCreate"]["properties"]["quantity"]
+    assert schemas["SalePaymentCreate"]["properties"]["amount"].get("type") == "string"
+    assert "anyOf" not in schemas["SalePaymentCreate"]["properties"]["amount"]
     assert "unit_cost" not in schemas["SaleItemResponse"]["properties"]
 
     openapi_path = Path(__file__).resolve().parents[3] / "docs" / "api" / "openapi.json"
     assert check_openapi(openapi_path) == 0
+
+
+@pytest.mark.asyncio
+async def test_concurrent_crossed_order_sales_no_deadlocks_or_lost_updates(
+    sales_auth_env: None,
+    db_session: AsyncSession,
+) -> None:
+    """Scenario: Concurrent crossed-order multi-item sales complete without
+    deadlocks or lost updates.
+    """
+    user_id = str(uuid.uuid4())
+    business_id = str(uuid.uuid4())
+
+    async with db_session.begin():
+        await _seed_business(db_session, business_id)
+        await _seed_business_user(db_session, business_id, user_id, role="owner")
+        id_low, id_high = sorted([str(uuid.uuid4()), str(uuid.uuid4())])
+        p1 = await _seed_product(
+            db_session,
+            product_id=id_low,
+            business_id=business_id,
+            name="Producto P1",
+            sale_price=Decimal("100.00"),
+            stock=Decimal("10.00"),
+        )
+        p2 = await _seed_product(
+            db_session,
+            product_id=id_high,
+            business_id=business_id,
+            name="Producto P2",
+            sale_price=Decimal("100.00"),
+            stock=Decimal("10.00"),
+        )
+
+    cookies = _make_jwt_cookie(user_id=user_id, business_id=business_id, role="owner")
+    payload_a = {
+        "client_id": str(uuid.uuid4()),
+        "items": [
+            {"product_id": p1, "quantity": "2.00"},
+            {"product_id": p2, "quantity": "2.00"},
+        ],
+        "payments": [{"payment_method": "cash", "amount": "400.00"}],
+    }
+    payload_b = {
+        "client_id": str(uuid.uuid4()),
+        "items": [
+            {"product_id": p2, "quantity": "3.00"},
+            {"product_id": p1, "quantity": "3.00"},
+        ],
+        "payments": [{"payment_method": "card", "amount": "600.00"}],
+    }
+    try:
+        transport = httpx.ASGITransport(app=app)
+        async with (
+            httpx.AsyncClient(transport=transport, base_url="http://test") as c1,
+            httpx.AsyncClient(transport=transport, base_url="http://test") as c2,
+        ):
+            r1, r2 = await asyncio.gather(
+                c1.post(SALES_URL, cookies=cookies, json=payload_a),
+                c2.post(SALES_URL, cookies=cookies, json=payload_b),
+            )
+
+        assert r1.status_code == 201
+        assert r2.status_code == 201
+
+        async with db_session.begin():
+            rows = (
+                (
+                    await db_session.execute(
+                        text("SELECT id, stock FROM products WHERE id IN (:p1, :p2)"),
+                        {"p1": p1, "p2": p2},
+                    )
+                )
+                .mappings()
+                .all()
+            )
+            stock_by_id = {str(r["id"]): r["stock"] for r in rows}
+            assert stock_by_id[p1] == Decimal("5.00")
+            assert stock_by_id[p2] == Decimal("5.00")
+    finally:
+        await _cleanup_businesses(db_session, [business_id])
+
+
+@pytest.mark.asyncio
+async def test_concurrent_retry_returns_200_when_catalog_changes_before_for_update(
+    sales_auth_env: None,
+    async_engine: AsyncEngine,
+    db_session: AsyncSession,
+) -> None:
+    """Scenario H1: Concurrent retry returns 200 OK when catalog price or
+    active status changes while waiting for FOR UPDATE lock.
+    """
+    user_id = str(uuid.uuid4())
+    business_id = str(uuid.uuid4())
+
+    async with db_session.begin():
+        await _seed_business(db_session, business_id)
+        await _seed_business_user(db_session, business_id, user_id, role="owner")
+        product_id = await _seed_product(
+            db_session,
+            business_id=business_id,
+            name="Producto Carrera H1",
+            sale_price=Decimal("500.00"),
+            cost_price=Decimal("200.00"),
+            stock=Decimal("10.00"),
+        )
+
+    client_id = str(uuid.uuid4())
+    sale_id = str(uuid.uuid4())
+    cookies = _make_jwt_cookie(user_id=user_id, business_id=business_id, role="owner")
+    payload = {
+        "client_id": client_id,
+        "items": [{"product_id": product_id, "quantity": "2.00"}],
+        "payments": [{"payment_method": "cash", "amount": "1000.00"}],
+    }
+
+    session_factory = async_sessionmaker(async_engine, expire_on_commit=False, class_=AsyncSession)
+    for_update_attempted = asyncio.Event()
+
+    def _on_before_execute(
+        conn: Any,
+        cursor: Any,
+        statement: str,
+        parameters: Any,
+        context: Any,
+        executemany: bool,
+    ) -> None:
+        stmt_lower = statement.lower()
+        if "from products" in stmt_lower and "for update" in stmt_lower:
+            for_update_attempted.set()
+
+    retry_task: asyncio.Task[httpx.Response] | None = None
+    try:
+        transport = httpx.ASGITransport(app=app)
+        async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+            # Hold FOR UPDATE lock in another transaction while the retry passes early lookup
+            async with session_factory() as lock_session, lock_session.begin():
+                await lock_session.execute(
+                    text("SELECT id FROM products WHERE id = :pid FOR UPDATE"),
+                    {"pid": product_id},
+                )
+
+                event.listen(Engine, "before_cursor_execute", _on_before_execute)
+                try:
+                    retry_task = asyncio.create_task(
+                        client.post(SALES_URL, cookies=cookies, json=payload)
+                    )
+                    await asyncio.wait_for(for_update_attempted.wait(), timeout=5.0)
+                    await asyncio.sleep(0.05)
+
+                    # Commit initial sale AND deactivate/reprice product before releasing lock
+                    await lock_session.execute(
+                        text(
+                            """
+                            INSERT INTO sales (id, business_id, client_id, total_amount)
+                            VALUES (:sid, :b_id, :c_id, 1000.00)
+                            """
+                        ),
+                        {"sid": sale_id, "b_id": business_id, "c_id": client_id},
+                    )
+                    await lock_session.execute(
+                        text(
+                            """
+                            INSERT INTO sale_items (
+                                business_id, sale_id, product_id, quantity, unit_price, unit_cost
+                            )
+                            VALUES (:b_id, :sid, :pid, 2.00, 500.00, 200.00)
+                            """
+                        ),
+                        {"b_id": business_id, "sid": sale_id, "pid": product_id},
+                    )
+                    await lock_session.execute(
+                        text(
+                            """
+                            INSERT INTO payments (business_id, sale_id, payment_method, amount)
+                            VALUES (:b_id, :sid, 'cash', 1000.00)
+                            """
+                        ),
+                        {"b_id": business_id, "sid": sale_id},
+                    )
+                    await lock_session.execute(
+                        text(
+                            """
+                            UPDATE products
+                            SET is_active = false, sale_price = 999.00, stock = 8.00
+                            WHERE id = :pid
+                            """
+                        ),
+                        {"pid": product_id},
+                    )
+                finally:
+                    event.remove(Engine, "before_cursor_execute", _on_before_execute)
+
+            response = await asyncio.wait_for(retry_task, timeout=5.0)
+
+        assert response.status_code == 200
+        body = response.json()
+        assert body["id"] == sale_id
+        assert body["client_id"] == client_id
+        assert body["total_amount"] == "1000.00"
+    finally:
+        if retry_task is not None and not retry_task.done():
+            retry_task.cancel()
+            await asyncio.gather(retry_task, return_exceptions=True)
+        await _cleanup_businesses(db_session, [business_id])
+
+
+@pytest.mark.asyncio
+async def test_reject_stock_numeric_12_2_overflow_and_allow_min_boundary(
+    sales_auth_env: None,
+    db_session: AsyncSession,
+) -> None:
+    """Scenario H2: Rejection of aggregated stock deduction or resulting
+    negative stock overflowing numeric(12,2), while allowing -9999999999.99.
+    """
+    user_id = str(uuid.uuid4())
+    business_id = str(uuid.uuid4())
+
+    async with db_session.begin():
+        await _seed_business(db_session, business_id)
+        await _seed_business_user(db_session, business_id, user_id, role="owner")
+        p_pos = await _seed_product(
+            db_session,
+            business_id=business_id,
+            name="Stock Positivo",
+            sale_price=Decimal("0.01"),
+            stock=Decimal("10.00"),
+        )
+        p_neg = await _seed_product(
+            db_session,
+            business_id=business_id,
+            name="Stock Negativo",
+            sale_price=Decimal("0.01"),
+            stock=Decimal("-1.00"),
+        )
+
+    cookies = _make_jwt_cookie(user_id=user_id, business_id=business_id, role="owner")
+    try:
+        transport = httpx.ASGITransport(app=app, raise_app_exceptions=False)
+        async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+            # 1) Aggregated duplicate lines exceeding 9999999999.99
+            resp_agg_overflow = await client.post(
+                SALES_URL,
+                cookies=cookies,
+                json={
+                    "client_id": str(uuid.uuid4()),
+                    "items": [
+                        {"product_id": p_pos, "quantity": "6000000000.00"},
+                        {"product_id": p_pos, "quantity": "6000000000.00"},
+                    ],
+                    "payments": [{"payment_method": "cash", "amount": "120000000.00"}],
+                },
+            )
+            # 2) Resulting negative stock < -9999999999.99 (-1.00 - 9999999999.00)
+            resp_neg_overflow = await client.post(
+                SALES_URL,
+                cookies=cookies,
+                json={
+                    "client_id": str(uuid.uuid4()),
+                    "items": [{"product_id": p_neg, "quantity": "9999999999.00"}],
+                    "payments": [{"payment_method": "cash", "amount": "99999999.99"}],
+                },
+            )
+            # 3) Exact boundary: -1.00 - 9999999998.99 == -9999999999.99
+            resp_boundary = await client.post(
+                SALES_URL,
+                cookies=cookies,
+                json={
+                    "client_id": str(uuid.uuid4()),
+                    "items": [{"product_id": p_neg, "quantity": "9999999998.99"}],
+                    "payments": [{"payment_method": "cash", "amount": "99999999.99"}],
+                },
+            )
+
+        _assert_uniform_error_response(resp_agg_overflow, 422, "VALIDATION_ERROR")
+        _assert_uniform_error_response(resp_neg_overflow, 422, "VALIDATION_ERROR")
+        assert resp_boundary.status_code == 201
+
+        async with db_session.begin():
+            rows = (
+                (
+                    await db_session.execute(
+                        text("SELECT id, stock FROM products WHERE id IN (:p1, :p2)"),
+                        {"p1": p_pos, "p2": p_neg},
+                    )
+                )
+                .mappings()
+                .all()
+            )
+            stock_by_id = {str(r["id"]): r["stock"] for r in rows}
+            assert stock_by_id[p_pos] == Decimal("10.00")
+            assert stock_by_id[p_neg] == Decimal("-9999999999.99")
+    finally:
+        await _cleanup_businesses(db_session, [business_id])
+
+
+@pytest.mark.asyncio
+async def test_reuse_client_id_with_different_payload_returns_409_conflict(
+    sales_auth_env: None,
+    db_session: AsyncSession,
+) -> None:
+    """Scenario H3: Reusing an existing client_id with different items or
+    payments is rejected with 409 Conflict (SALE_ID_CONFLICT).
+    """
+    user_id = str(uuid.uuid4())
+    business_id = str(uuid.uuid4())
+
+    async with db_session.begin():
+        await _seed_business(db_session, business_id)
+        await _seed_business_user(db_session, business_id, user_id, role="owner")
+        p1 = await _seed_product(
+            db_session,
+            business_id=business_id,
+            name="Producto 1",
+            sale_price=Decimal("100.00"),
+            stock=Decimal("10.00"),
+        )
+        p2 = await _seed_product(
+            db_session,
+            business_id=business_id,
+            name="Producto 2",
+            sale_price=Decimal("100.00"),
+            stock=Decimal("10.00"),
+        )
+
+    client_id = str(uuid.uuid4())
+    cookies = _make_jwt_cookie(user_id=user_id, business_id=business_id, role="owner")
+    base_payload = {
+        "client_id": client_id,
+        "items": [{"product_id": p1, "quantity": "2.00"}],
+        "payments": [{"payment_method": "cash", "amount": "200.00"}],
+    }
+    conflicting_payloads = [
+        # Different product_id
+        {
+            "client_id": client_id,
+            "items": [{"product_id": p2, "quantity": "2.00"}],
+            "payments": [{"payment_method": "cash", "amount": "200.00"}],
+        },
+        # Different quantity
+        {
+            "client_id": client_id,
+            "items": [{"product_id": p1, "quantity": "3.00"}],
+            "payments": [{"payment_method": "cash", "amount": "300.00"}],
+        },
+        # Different payment_method
+        {
+            "client_id": client_id,
+            "items": [{"product_id": p1, "quantity": "2.00"}],
+            "payments": [{"payment_method": "card", "amount": "200.00"}],
+        },
+        # Split payment with different amounts
+        {
+            "client_id": client_id,
+            "items": [{"product_id": p1, "quantity": "2.00"}],
+            "payments": [
+                {"payment_method": "cash", "amount": "100.00"},
+                {"payment_method": "cash", "amount": "100.00"},
+            ],
+        },
+        # Extra item line
+        {
+            "client_id": client_id,
+            "items": [
+                {"product_id": p1, "quantity": "2.00"},
+                {"product_id": p2, "quantity": "1.00"},
+            ],
+            "payments": [{"payment_method": "cash", "amount": "300.00"}],
+        },
+    ]
+
+    try:
+        transport = httpx.ASGITransport(app=app)
+        async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+            first_resp = await client.post(SALES_URL, cookies=cookies, json=base_payload)
+            assert first_resp.status_code == 201
+
+            for conflict_payload in conflicting_payloads:
+                resp = await client.post(SALES_URL, cookies=cookies, json=conflict_payload)
+                body = _assert_uniform_error_response(resp, 409, "SALE_ID_CONFLICT")
+                assert body["details"] == {"client_id": client_id}
+
+        async with db_session.begin():
+            rows = (
+                (
+                    await db_session.execute(
+                        text("SELECT id, stock FROM products WHERE id IN (:p1, :p2)"),
+                        {"p1": p1, "p2": p2},
+                    )
+                )
+                .mappings()
+                .all()
+            )
+            stock_by_id = {str(r["id"]): r["stock"] for r in rows}
+            assert stock_by_id[p1] == Decimal("8.00")
+            assert stock_by_id[p2] == Decimal("10.00")
+    finally:
+        await _cleanup_businesses(db_session, [business_id])
+
+
+@pytest.mark.asyncio
+async def test_idempotent_retry_matches_order_independent_multisets_returns_200(
+    sales_auth_env: None,
+    db_session: AsyncSession,
+) -> None:
+    """Scenario H3: Retrying with identical items and payments in a different
+    order matches as order-independent multisets and returns 200 OK.
+    """
+    user_id = str(uuid.uuid4())
+    business_id = str(uuid.uuid4())
+
+    async with db_session.begin():
+        await _seed_business(db_session, business_id)
+        await _seed_business_user(db_session, business_id, user_id, role="owner")
+        p1 = await _seed_product(
+            db_session,
+            business_id=business_id,
+            name="Item A",
+            sale_price=Decimal("100.00"),
+            stock=Decimal("10.00"),
+        )
+        p2 = await _seed_product(
+            db_session,
+            business_id=business_id,
+            name="Item B",
+            sale_price=Decimal("100.00"),
+            stock=Decimal("10.00"),
+        )
+
+    client_id = str(uuid.uuid4())
+    cookies = _make_jwt_cookie(user_id=user_id, business_id=business_id, role="owner")
+    payload_1 = {
+        "client_id": client_id,
+        "items": [
+            {"product_id": p1, "quantity": "1.00"},
+            {"product_id": p2, "quantity": "2.00"},
+        ],
+        "payments": [
+            {"payment_method": "cash", "amount": "100.00"},
+            {"payment_method": "card", "amount": "200.00"},
+        ],
+    }
+    payload_reordered = {
+        "client_id": client_id,
+        "items": [
+            {"product_id": p2, "quantity": "2"},
+            {"product_id": p1, "quantity": "1.0"},
+        ],
+        "payments": [
+            {"payment_method": "card", "amount": "200"},
+            {"payment_method": "cash", "amount": "100.0"},
+        ],
+    }
+    try:
+        transport = httpx.ASGITransport(app=app)
+        async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+            r1 = await client.post(SALES_URL, cookies=cookies, json=payload_1)
+            r2 = await client.post(SALES_URL, cookies=cookies, json=payload_reordered)
+
+        assert r1.status_code == 201
+        assert r2.status_code == 200
+        assert r2.json() == r1.json()
+    finally:
+        await _cleanup_businesses(db_session, [business_id])
+
+
+@pytest.mark.asyncio
+async def test_concurrent_client_id_collision_with_different_payloads_returns_201_and_409(
+    sales_auth_env: None,
+    db_session: AsyncSession,
+) -> None:
+    """Scenario H3: Concurrent requests with same client_id and different
+    payloads resolve to one 201 Created and one 409 SALE_ID_CONFLICT.
+    """
+    user_id = str(uuid.uuid4())
+    business_id = str(uuid.uuid4())
+
+    async with db_session.begin():
+        await _seed_business(db_session, business_id)
+        await _seed_business_user(db_session, business_id, user_id, role="owner")
+        product_id = await _seed_product(
+            db_session,
+            business_id=business_id,
+            name="Producto Colision",
+            sale_price=Decimal("100.00"),
+            stock=Decimal("10.00"),
+        )
+
+    client_id = str(uuid.uuid4())
+    cookies = _make_jwt_cookie(user_id=user_id, business_id=business_id, role="owner")
+    payload_1 = {
+        "client_id": client_id,
+        "items": [{"product_id": product_id, "quantity": "1.00"}],
+        "payments": [{"payment_method": "cash", "amount": "100.00"}],
+    }
+    payload_2 = {
+        "client_id": client_id,
+        "items": [{"product_id": product_id, "quantity": "2.00"}],
+        "payments": [{"payment_method": "cash", "amount": "200.00"}],
+    }
+    try:
+        transport = httpx.ASGITransport(app=app)
+        async with (
+            httpx.AsyncClient(transport=transport, base_url="http://test") as c1,
+            httpx.AsyncClient(transport=transport, base_url="http://test") as c2,
+        ):
+            r1, r2 = await asyncio.gather(
+                c1.post(SALES_URL, cookies=cookies, json=payload_1),
+                c2.post(SALES_URL, cookies=cookies, json=payload_2),
+            )
+
+        by_status = {r1.status_code: r1, r2.status_code: r2}
+        assert set(by_status.keys()) == {201, 409}
+        conflict_body = _assert_uniform_error_response(by_status[409], 409, "SALE_ID_CONFLICT")
+        assert conflict_body["details"] == {"client_id": client_id}
+    finally:
+        await _cleanup_businesses(db_session, [business_id])
+
+
+@pytest.mark.asyncio
+async def test_items_and_payments_batch_limits_and_zero_unit_cost(
+    sales_auth_env: None,
+    db_session: AsyncSession,
+) -> None:
+    """Scenario M3: Enforcement of items (500/501) and payments (20/21) batch
+    limits and zero unit_cost support.
+    """
+    user_id = str(uuid.uuid4())
+    business_id = str(uuid.uuid4())
+
+    async with db_session.begin():
+        await _seed_business(db_session, business_id)
+        await _seed_business_user(db_session, business_id, user_id, role="owner")
+        product_id = await _seed_product(
+            db_session,
+            business_id=business_id,
+            name="Servicio Costo Cero",
+            sale_price=Decimal("10.00"),
+            cost_price=Decimal("0.00"),
+            stock=Decimal("1000.00"),
+        )
+
+    cookies = _make_jwt_cookie(user_id=user_id, business_id=business_id, role="owner")
+    try:
+        transport = httpx.ASGITransport(app=app)
+        async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+            resp_500_items = await client.post(
+                SALES_URL,
+                cookies=cookies,
+                json={
+                    "client_id": str(uuid.uuid4()),
+                    "items": [{"product_id": product_id, "quantity": "1.00"} for _ in range(500)],
+                    "payments": [{"payment_method": "cash", "amount": "5000.00"}],
+                },
+            )
+            resp_20_payments = await client.post(
+                SALES_URL,
+                cookies=cookies,
+                json={
+                    "client_id": str(uuid.uuid4()),
+                    "items": [{"product_id": product_id, "quantity": "2.00"}],
+                    "payments": [{"payment_method": "cash", "amount": "1.00"} for _ in range(20)],
+                },
+            )
+            resp_501_items = await client.post(
+                SALES_URL,
+                cookies=cookies,
+                json={
+                    "client_id": str(uuid.uuid4()),
+                    "items": [{"product_id": product_id, "quantity": "1.00"} for _ in range(501)],
+                    "payments": [{"payment_method": "cash", "amount": "5010.00"}],
+                },
+            )
+            resp_21_payments = await client.post(
+                SALES_URL,
+                cookies=cookies,
+                json={
+                    "client_id": str(uuid.uuid4()),
+                    "items": [{"product_id": product_id, "quantity": "2.10"}],
+                    "payments": [{"payment_method": "cash", "amount": "1.00"} for _ in range(21)],
+                },
+            )
+
+        assert resp_500_items.status_code == 201
+        assert "unit_cost" not in resp_500_items.json()["items"][0]
+        assert resp_20_payments.status_code == 201
+        _assert_uniform_error_response(resp_501_items, 422, "VALIDATION_ERROR")
+        _assert_uniform_error_response(resp_21_payments, 422, "VALIDATION_ERROR")
+
+        async with db_session.begin():
+            unit_cost = (
+                await db_session.execute(
+                    text("SELECT unit_cost FROM sale_items WHERE sale_id = :sid LIMIT 1"),
+                    {"sid": resp_500_items.json()["id"]},
+                )
+            ).scalar_one()
+            assert unit_cost == Decimal("0.00")
+    finally:
+        await _cleanup_businesses(db_session, [business_id])
+
+
+@pytest.mark.asyncio
+async def test_multi_product_sale_executes_single_tenant_filtered_bulk_update(
+    sales_auth_env: None,
+    db_session: AsyncSession,
+) -> None:
+    """Scenario M4: Multi-product sale deducts stock in one tenant-filtered
+    UPDATE statement with CASE WHEN.
+    """
+    user_id = str(uuid.uuid4())
+    business_id = str(uuid.uuid4())
+
+    async with db_session.begin():
+        await _seed_business(db_session, business_id)
+        await _seed_business_user(db_session, business_id, user_id, role="owner")
+        p1 = await _seed_product(
+            db_session,
+            business_id=business_id,
+            name="Bulk A",
+            sale_price=Decimal("100.00"),
+            stock=Decimal("10.00"),
+        )
+        p2 = await _seed_product(
+            db_session,
+            business_id=business_id,
+            name="Bulk B",
+            sale_price=Decimal("200.00"),
+            stock=Decimal("10.00"),
+        )
+
+    cookies = _make_jwt_cookie(user_id=user_id, business_id=business_id, role="owner")
+    try:
+        transport = httpx.ASGITransport(app=app)
+        with _capture_sql_statements() as sql_log:
+            async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+                response = await client.post(
+                    SALES_URL,
+                    cookies=cookies,
+                    json={
+                        "client_id": str(uuid.uuid4()),
+                        "items": [
+                            {"product_id": p1, "quantity": "2.00"},
+                            {"product_id": p2, "quantity": "3.00"},
+                        ],
+                        "payments": [{"payment_method": "cash", "amount": "800.00"}],
+                    },
+                )
+
+        assert response.status_code == 201
+        update_stmts = [stmt for stmt, _ in sql_log if stmt.startswith("update products")]
+        assert len(update_stmts) == 1
+        assert "case" in update_stmts[0]
+        assert "business_id" in update_stmts[0]
+    finally:
+        await _cleanup_businesses(db_session, [business_id])

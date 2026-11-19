@@ -516,6 +516,16 @@
               }
             }
           },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "422": {
             "description": "Unprocessable Content",
             "content": {
@@ -964,16 +974,9 @@
             "description": "Identificador del producto"
           },
           "quantity": {
-            "anyOf": [
-              {
-                "type": "number",
-                "maximum": 9999999999.99,
-                "exclusiveMinimum": 0.0
-              },
-              {
-                "type": "string"
-              }
-            ],
+            "type": "string",
+            "pattern": "^\\d{1,10}(\\.\\d{1,2})?$",
+            "format": "decimal",
             "title": "Quantity",
             "description": "Cantidad vendida (string decimal exacto, sin float)",
             "examples": [
@@ -1046,16 +1049,9 @@
             ]
           },
           "amount": {
-            "anyOf": [
-              {
-                "type": "number",
-                "maximum": 9999999999.99,
-                "exclusiveMinimum": 0.0
-              },
-              {
-                "type": "string"
-              }
-            ],
+            "type": "string",
+            "pattern": "^\\d{1,10}(\\.\\d{1,2})?$",
+            "format": "decimal",
             "title": "Amount",
             "description": "Importe imputado a este medio de pago (string decimal exacto)",
             "examples": [

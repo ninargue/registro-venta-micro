@@ -9,10 +9,12 @@ from app.modules.catalog.service import CatalogService
 from app.modules.sales.repository import SalesRepository
 from app.modules.sales.schemas import SaleCreate, SaleResponse
 from app.modules.sales.service import (
+    SaleIdConflictError,
     SalePaymentMismatchError,
     SaleProductInactiveError,
     SaleProductNotFoundError,
     SalesService,
+    SaleStockOverflowError,
     SaleTotalInvalidError,
 )
 
@@ -41,6 +43,7 @@ def get_sales_service(
         401: {"model": ErrorResponse},
         403: {"model": ErrorResponse},
         404: {"model": ErrorResponse},
+        409: {"model": ErrorResponse},
         422: {"model": ErrorResponse},
     },
 )
@@ -87,7 +90,16 @@ async def create_sale(
                 },
             },
         ) from exc
-    except SaleTotalInvalidError as exc:
+    except SaleIdConflictError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={
+                "code": "SALE_ID_CONFLICT",
+                "message": "client_id already exists with different sale items or payments",
+                "details": {"client_id": str(exc.client_id)},
+            },
+        ) from exc
+    except (SaleTotalInvalidError, SaleStockOverflowError) as exc:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail={

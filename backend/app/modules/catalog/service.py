@@ -109,21 +109,36 @@ class CatalogService:
 
     async def lock_products_for_sale(
         self,
+        *,
+        business_id: uuid.UUID,
         product_ids: list[uuid.UUID],
     ) -> dict[uuid.UUID, Product]:
-        """Bloquea y devuelve los productos solicitados en orden determinista para una venta."""
-        return await self._repository.lock_products_for_sale(product_ids)
+        """Bloquea y devuelve los productos del comercio en orden determinista para una venta."""
+        return await self._repository.lock_products_for_sale(
+            business_id=business_id,
+            product_ids=product_ids,
+        )
 
     async def deduct_stock_batch(
         self,
+        *,
+        business_id: uuid.UUID,
         deductions: dict[uuid.UUID, Decimal],
     ) -> None:
-        """Descuenta stock por lote en orden determinista dentro de la transacción activa."""
-        await self._repository.deduct_stock_batch(deductions)
+        """Descuenta stock por lote del comercio dentro de la transacción activa."""
+        await self._repository.deduct_stock_batch(
+            business_id=business_id,
+            deductions=deductions,
+        )
 
     async def get_product_names_by_ids(
         self,
+        *,
+        business_id: uuid.UUID,
         product_ids: list[uuid.UUID],
     ) -> dict[uuid.UUID, str]:
-        """Devuelve un mapa product_id -> name para armar comprobantes."""
-        return await self._repository.get_product_names_by_ids(product_ids)
+        """Devuelve un mapa product_id -> name del comercio para armar comprobantes."""
+        return await self._repository.get_product_names_by_ids(
+            business_id=business_id,
+            product_ids=product_ids,
+        )

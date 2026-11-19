@@ -1,9 +1,9 @@
 import uuid
 from datetime import datetime
 from decimal import Decimal
-from typing import Any, Literal
+from typing import Annotated, Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, WithJsonSchema, field_validator
 
 from app.core.schemas import (
     MAX_NUMERIC_12_2,
@@ -14,12 +14,23 @@ from app.core.schemas import (
 
 PaymentMethod = Literal["cash", "card", "transfer"]
 
+DecimalInput = Annotated[
+    Decimal,
+    WithJsonSchema(
+        {
+            "type": "string",
+            "format": "decimal",
+            "pattern": r"^\d{1,10}(\.\d{1,2})?$",
+        }
+    ),
+]
+
 
 class SaleItemCreate(BaseModel):
     """Línea de producto en una solicitud de venta."""
 
     product_id: uuid.UUID = Field(description="Identificador del producto")
-    quantity: Decimal = Field(
+    quantity: DecimalInput = Field(
         gt=Decimal("0"),
         le=MAX_NUMERIC_12_2,
         max_digits=12,
@@ -48,7 +59,7 @@ class SalePaymentCreate(BaseModel):
         description="Medio de pago admitido en MVP",
         examples=["cash"],
     )
-    amount: Decimal = Field(
+    amount: DecimalInput = Field(
         gt=Decimal("0"),
         le=MAX_NUMERIC_12_2,
         max_digits=12,

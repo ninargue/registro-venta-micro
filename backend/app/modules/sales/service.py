@@ -45,6 +45,18 @@ class SaleTotalInvalidError(Exception):
     """Error lanzado cuando el subtotal o total calculado excede los límites válidos."""
 
 
+class SaleStockOverflowError(Exception):
+    """Error lanzado cuando la deducción o el stock resultante exceden numeric(12,2)."""
+
+
+class SaleIdConflictError(Exception):
+    """Error lanzado cuando un client_id existente se reutiliza con distinto contenido."""
+
+    def __init__(self, client_id: uuid.UUID) -> None:
+        self.client_id = client_id
+        super().__init__("client_id already exists with different sale items or payments")
+
+
 class SalesService:
     """Casos de uso transaccionales e idempotentes de ventas."""
 
@@ -99,6 +111,29 @@ class SalesService:
             created_at=sale.created_at,
         )
 
+    @staticmethod
+    def _assert_idempotent_payload_matches(
+        payload: SaleCreate,
+        existing_items: list[SaleItem],
+        existing_payments: list[Payment],
+    ) -> None:
+        incoming_items = sorted(
+            (item.product_id, quantize_decimal(item.quantity)) for item in payload.items
+        )
+        persisted_items = sorted(
+            (item.product_id, quantize_decimal(item.quantity)) for item in existing_items
+        )
+        incoming_payments = sorted(
+            (payment.payment_method, quantize_decimal(payment.amount))
+            for payment in payload.payments
+        )
+        persisted_payments = sorted(
+            (cast(PaymentMethod, payment.payment_method), quantize_decimal(payment.amount))
+            for payment in existing_payments
+        )
+        if incoming_items != persisted_items or incoming_payments != persisted_payments:
+            raise SaleIdConflictError(payload.client_id)
+
     async def create_sale(
         self,
         current_user: CurrentUser,
@@ -116,13 +151,35 @@ class SalesService:
         )
         if existing is not None:
             sale, items, payments = existing
+            self._assert_idempotent_payload_matches(payload, items, payments)
             product_names = await self._catalog_service.get_product_names_by_ids(
-                [item.product_id for item in items]
+                business_id=business_id,
+                product_ids=[item.product_id for item in items],
             )
             return self._build_sale_response(sale, items, payments, product_names), False
 
         unique_product_ids = sorted({item.product_id for item in payload.items})
-        products_by_id = await self._catalog_service.lock_products_for_sale(unique_product_ids)
+        products_by_id = await self._catalog_service.lock_products_for_sale(
+            business_id=business_id,
+            product_ids=unique_product_ids,
+        )
+
+        existing_after_lock = await self._repository.get_sale_by_client_id(
+            business_id=business_id,
+            client_id=payload.client_id,
+        )
+        if existing_after_lock is not None:
+            sale, items, payments = existing_after_lock
+            self._assert_idempotent_payload_matches(payload, items, payments)
+            existing_product_ids = [item.product_id for item in items]
+            if all(pid in products_by_id for pid in existing_product_ids):
+                product_names = {pid: products_by_id[pid].name for pid in existing_product_ids}
+            else:
+                product_names = await self._catalog_service.get_product_names_by_ids(
+                    business_id=business_id,
+                    product_ids=existing_product_ids,
+                )
+            return self._build_sale_response(sale, items, payments, product_names), False
 
         missing_ids = [pid for pid in unique_product_ids if pid not in products_by_id]
         if missing_ids:
@@ -149,9 +206,12 @@ class SalesService:
             if total_amount > MAX_NUMERIC_12_2:
                 raise SaleTotalInvalidError("Calculated sale total exceeds numeric(12,2) range")
 
-            stock_deductions[item.product_id] = (
-                stock_deductions.get(item.product_id, Decimal("0.00")) + item.quantity
-            )
+            new_deduction = stock_deductions.get(item.product_id, Decimal("0.00")) + item.quantity
+            if new_deduction > MAX_NUMERIC_12_2:
+                raise SaleStockOverflowError(
+                    "Aggregated product stock deduction exceeds numeric(12,2) range"
+                )
+            stock_deductions[item.product_id] = new_deduction
             item_rows.append(
                 {
                     "business_id": business_id,
@@ -164,6 +224,13 @@ class SalesService:
 
         if total_amount <= Decimal("0.00") or total_amount > MAX_NUMERIC_12_2:
             raise SaleTotalInvalidError("Calculated sale total is out of valid range")
+
+        for pid, total_qty in stock_deductions.items():
+            resulting_stock = quantize_decimal(products_by_id[pid].stock) - total_qty
+            if resulting_stock < -MAX_NUMERIC_12_2:
+                raise SaleStockOverflowError(
+                    "Resulting product stock falls below numeric(12,2) range"
+                )
 
         payments_total = sum((p.amount for p in payload.payments), start=Decimal("0.00"))
         if payments_total != total_amount:
@@ -192,7 +259,10 @@ class SalesService:
                 ]
                 inserted_items = await self._repository.insert_sale_items(items=item_rows)
                 inserted_payments = await self._repository.insert_payments(payments=payment_rows)
-                await self._catalog_service.deduct_stock_batch(stock_deductions)
+                await self._catalog_service.deduct_stock_batch(
+                    business_id=business_id,
+                    deductions=stock_deductions,
+                )
                 return (
                     self._build_sale_response(
                         inserted_sale,
@@ -211,9 +281,15 @@ class SalesService:
             raise RuntimeError("Concurrent sale conflict occurred but committed sale was not found")
 
         existing_sale, existing_items, existing_payments = existing_after_conflict
-        existing_names = await self._catalog_service.get_product_names_by_ids(
-            [item.product_id for item in existing_items]
-        )
+        self._assert_idempotent_payload_matches(payload, existing_items, existing_payments)
+        existing_product_ids = [item.product_id for item in existing_items]
+        if all(pid in products_by_id for pid in existing_product_ids):
+            existing_names = {pid: products_by_id[pid].name for pid in existing_product_ids}
+        else:
+            existing_names = await self._catalog_service.get_product_names_by_ids(
+                business_id=business_id,
+                product_ids=existing_product_ids,
+            )
         return (
             self._build_sale_response(
                 existing_sale,
