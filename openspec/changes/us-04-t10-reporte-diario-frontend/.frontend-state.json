@@ -1,0 +1,19 @@
+{
+  "openapi_hash": "0957ac6011451bdcca17e09a748cb24e293506e1816b81ed0f5dce38cb753bf6",
+  "protected_snapshots": {
+    "backend/migrations": "7db20d7968131b75ceec6a5c33159e6bd4e51b20968d30f2b926a3b4db0f769b",
+    "backend/app": "31f2fd1c696a7425c53a027064ed645b20d9178ac38d07e8fb2af3394fb70b05"
+  },
+  "revision_count": {
+    "architect": 0
+  },
+  "diff_history": [
+    {
+      "node": "architect",
+      "attempt": 0,
+      "status": "passed",
+      "snapshot_hash": "b07946db3e7512afac3431cc5e55a7f02cd09ff0142ad7b66dc0022624b23f93",
+      "ts": "2026-11-19T18:58:48.222Z"
+    }
+  ]
+}
