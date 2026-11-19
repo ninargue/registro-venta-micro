@@ -1,13 +1,17 @@
+import uuid
+
 from sqlalchemy.exc import IntegrityError
 
 from app.core.security import CurrentUser
 from app.modules.catalog.models import Product
 from app.modules.catalog.repository import CatalogRepository
 from app.modules.catalog.schemas import (
+    UPDATABLE_PRODUCT_FIELDS,
     ProductCreate,
     ProductListQuery,
     ProductListResponse,
     ProductResponse,
+    ProductUpdate,
 )
 
 PRODUCT_CODE_UNIQUE_CONSTRAINT = "uq_products_business_id_code"
@@ -15,6 +19,10 @@ PRODUCT_CODE_UNIQUE_CONSTRAINT = "uq_products_business_id_code"
 
 class DuplicateProductCodeError(Exception):
     """Error lanzado cuando ya existe un producto con el mismo código en el comercio."""
+
+
+class ProductNotFoundError(Exception):
+    """Error lanzado cuando el producto no existe o no pertenece al comercio autenticado."""
 
 
 def _is_duplicate_product_code_violation(exc: IntegrityError) -> bool:
@@ -81,6 +89,39 @@ class CatalogService:
                     "Product code already exists for this business"
                 ) from exc
             raise
+
+        return self._to_product_response(product, redact_cost=False)
+
+    async def update_product(
+        self,
+        current_user: CurrentUser,
+        product_id: uuid.UUID,
+        payload: ProductUpdate,
+    ) -> ProductResponse:
+        """Actualiza parcialmente un producto perteneciente al comercio del usuario autenticado."""
+        if current_user.business_id is None:
+            raise ValueError("Tenant business_id is required")
+
+        raw_updates = payload.model_dump(exclude_unset=True)
+        updates = {
+            key: value for key, value in raw_updates.items() if key in UPDATABLE_PRODUCT_FIELDS
+        }
+
+        try:
+            product = await self._repository.update_product(
+                product_id=product_id,
+                business_id=current_user.business_id,
+                updates=updates,
+            )
+        except IntegrityError as exc:
+            if _is_duplicate_product_code_violation(exc):
+                raise DuplicateProductCodeError(
+                    "Product code already exists for this business"
+                ) from exc
+            raise
+
+        if product is None:
+            raise ProductNotFoundError("Product not found")
 
         return self._to_product_response(product, redact_cost=False)
 

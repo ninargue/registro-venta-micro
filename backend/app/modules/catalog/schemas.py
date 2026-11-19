@@ -1,14 +1,42 @@
 import uuid
 from datetime import datetime
 from decimal import Decimal, InvalidOperation
-from typing import Any
+from typing import Any, Self
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from app.core.schemas import reject_nul_byte
 
 MAX_NUMERIC_12_2 = Decimal("9999999999.99")
 DECIMAL_QUANTIZER = Decimal("0.01")
+UPDATABLE_PRODUCT_FIELDS: frozenset[str] = frozenset(
+    {"code", "name", "sale_price", "cost_price", "stock"}
+)
+_NON_NULLABLE_UPDATE_FIELDS: tuple[str, ...] = ("name", "sale_price", "cost_price", "stock")
+
+
+def _validate_optional_code(value: Any) -> str | None:
+    """Valida y normaliza el código/SKU opcional del producto."""
+    if value is None:
+        return None
+    if not isinstance(value, str):
+        raise ValueError("Product code must be a string")
+    reject_nul_byte(value)
+    cleaned = value.strip()
+    if not cleaned:
+        raise ValueError("Product code cannot be empty")
+    return cleaned
+
+
+def _validate_product_name(value: Any) -> str:
+    """Valida y normaliza el nombre obligatorio del producto."""
+    if not isinstance(value, str):
+        raise ValueError("Product name must be a string")
+    reject_nul_byte(value)
+    cleaned = value.strip()
+    if not cleaned:
+        raise ValueError("Product name cannot be empty")
+    return cleaned
 
 
 def _parse_strict_decimal(value: Any) -> Decimal:
@@ -93,31 +121,87 @@ class ProductCreate(BaseModel):
     @field_validator("code", mode="before")
     @classmethod
     def validate_code(cls, value: Any) -> str | None:
-        if value is None:
-            return None
-        if not isinstance(value, str):
-            raise ValueError("Product code must be a string")
-        reject_nul_byte(value)
-        cleaned = value.strip()
-        if not cleaned:
-            raise ValueError("Product code cannot be empty")
-        return cleaned
+        return _validate_optional_code(value)
 
     @field_validator("name", mode="before")
     @classmethod
     def validate_name(cls, value: Any) -> str:
-        if not isinstance(value, str):
-            raise ValueError("Product name must be a string")
-        reject_nul_byte(value)
-        cleaned = value.strip()
-        if not cleaned:
-            raise ValueError("Product name cannot be empty")
-        return cleaned
+        return _validate_product_name(value)
 
     @field_validator("sale_price", "cost_price", "stock", mode="before")
     @classmethod
     def validate_decimals(cls, value: Any) -> Decimal:
         return _parse_strict_decimal(value)
+
+
+class ProductUpdate(BaseModel):
+    """Payload de entrada para actualizar parcialmente un producto en PATCH."""
+
+    code: str | None = Field(
+        default=None,
+        max_length=50,
+        description="Código interno o SKU opcional",
+        examples=["SKU-001"],
+    )
+    name: str | None = Field(
+        default=None,
+        min_length=1,
+        max_length=150,
+        description="Nombre del producto",
+        examples=["Yerba Mate 1kg"],
+    )
+    sale_price: Decimal | None = Field(
+        default=None,
+        gt=Decimal("0"),
+        le=MAX_NUMERIC_12_2,
+        max_digits=12,
+        decimal_places=2,
+        description="Precio de venta bruto (sin impuestos)",
+        examples=["3500.50"],
+    )
+    cost_price: Decimal | None = Field(
+        default=None,
+        ge=Decimal("0"),
+        le=MAX_NUMERIC_12_2,
+        max_digits=12,
+        decimal_places=2,
+        description="Costo unitario de referencia",
+        examples=["2200.00"],
+    )
+    stock: Decimal | None = Field(
+        default=None,
+        ge=Decimal("0"),
+        le=MAX_NUMERIC_12_2,
+        max_digits=12,
+        decimal_places=2,
+        description="Stock actual del producto",
+        examples=["10.00"],
+    )
+
+    @field_validator("code", mode="before")
+    @classmethod
+    def validate_code(cls, value: Any) -> str | None:
+        return _validate_optional_code(value)
+
+    @field_validator("name", mode="before")
+    @classmethod
+    def validate_name(cls, value: Any) -> str:
+        return _validate_product_name(value)
+
+    @field_validator("sale_price", "cost_price", "stock", mode="before")
+    @classmethod
+    def validate_decimals(cls, value: Any) -> Decimal:
+        return _parse_strict_decimal(value)
+
+    @model_validator(mode="after")
+    def validate_non_empty_and_non_nullable_fields(self) -> Self:
+        editable_set = self.model_fields_set & UPDATABLE_PRODUCT_FIELDS
+        if not editable_set:
+            raise ValueError("At least one editable field must be provided")
+        for field_name in _NON_NULLABLE_UPDATE_FIELDS:
+            if field_name in self.model_fields_set and getattr(self, field_name) is None:
+                raise ValueError(f"Field '{field_name}' cannot be null")
+        return self
 
 
 class ProductListQuery(BaseModel):
