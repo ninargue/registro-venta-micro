@@ -5,7 +5,8 @@
   },
   "revision_count": {
     "architect": 0,
-    "qa": 0
+    "qa": 0,
+    "maquetador": 3
   },
   "diff_history": [
     {
@@ -27,6 +28,33 @@
       "status": "tests-snapshot",
       "tests_hash": "aeec8da18101cf448698ac64102ebd86fec3051e018613ff93b1ddce3e37349f",
       "ts": "2026-11-19T22:19:53.929Z"
+    },
+    {
+      "node": "maquetador",
+      "attempt": 1,
+      "status": "failed",
+      "snapshot_hash": "2b8e3c635483915194164ac1fe0f195b065cec9c38a49c46ab65f871a36b54cf",
+      "ts": "2026-11-19T22:34:37.143Z"
+    },
+    {
+      "node": "maquetador",
+      "attempt": 2,
+      "status": "failed",
+      "snapshot_hash": "2b8e3c635483915194164ac1fe0f195b065cec9c38a49c46ab65f871a36b54cf",
+      "ts": "2026-11-19T22:35:11.230Z"
+    },
+    {
+      "node": "maquetador",
+      "attempt": 3,
+      "status": "failed",
+      "snapshot_hash": "2b8e3c635483915194164ac1fe0f195b065cec9c38a49c46ab65f871a36b54cf",
+      "ts": "2026-11-19T22:36:53.915Z"
+    },
+    {
+      "node": "maquetador",
+      "status": "tests-snapshot",
+      "tests_hash": "c7a2333f2b9225b7ffa09b02643b40010d1dad14367f6894fa46d3d4ea86e025",
+      "ts": "2026-11-19T23:00:00.000Z"
     }
   ]
 }

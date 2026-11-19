@@ -39,6 +39,21 @@ export const DEFAULT_PRODUCT_2 = {
   updated_at: "2026-01-01T00:00:00Z",
 } as const;
 
+interface ProductCreateBody {
+  code?: string | null;
+  name: string;
+  sale_price: string;
+  cost_price?: string | null;
+  stock?: string | null;
+}
+
+interface ProductUpdateBody {
+  name?: string;
+  sale_price?: string;
+  cost_price?: string | null;
+  stock?: string | null;
+}
+
 export const handlers = [
   http.get("/api/v1/health", () => {
     return HttpResponse.json({ status: "healthy" });
@@ -100,15 +115,15 @@ export const handlers = [
   }),
 
   http.post("/api/v1/catalog/products", async ({ request }) => {
-    const body = (await request.json()) as Record<string, unknown>;
+    const body = (await request.json()) as ProductCreateBody;
     return HttpResponse.json(
       {
         id: "cccccccc-cccc-4ccc-8ccc-cccccccccccc",
-        code: (body.code as string | null) ?? null,
-        name: body.name as string,
-        sale_price: String(body.sale_price),
-        cost_price: body.cost_price ? String(body.cost_price) : null,
-        stock: body.stock ? String(body.stock) : "0.00",
+        code: body.code ?? null,
+        name: body.name,
+        sale_price: body.sale_price,
+        cost_price: body.cost_price ?? null,
+        stock: body.stock ?? "0.00",
         is_active: true,
         created_at: "2026-11-19T00:00:00Z",
         updated_at: "2026-11-19T00:00:00Z",
@@ -118,12 +133,12 @@ export const handlers = [
   }),
 
   http.patch("/api/v1/catalog/products/:product_id", async ({ params, request }) => {
-    const body = (await request.json()) as Record<string, unknown>;
+    const body = (await request.json()) as ProductUpdateBody;
     return HttpResponse.json({
       id: params.product_id as string,
       code: DEFAULT_PRODUCT_1.code,
-      name: (body.name as string | undefined) ?? DEFAULT_PRODUCT_1.name,
-      sale_price: body.sale_price ? String(body.sale_price) : DEFAULT_PRODUCT_1.sale_price,
+      name: body.name ?? DEFAULT_PRODUCT_1.name,
+      sale_price: body.sale_price ?? DEFAULT_PRODUCT_1.sale_price,
       cost_price: DEFAULT_PRODUCT_1.cost_price,
       stock: DEFAULT_PRODUCT_1.stock,
       is_active: true,

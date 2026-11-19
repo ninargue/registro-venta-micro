@@ -55,7 +55,7 @@ describe("useProducts", () => {
     });
 
     expect(result.current.data?.items).toHaveLength(2);
-    expect(result.current.data?.items[0].name).toBe(DEFAULT_PRODUCT_1.name);
+    expect(result.current.data?.items[0]?.name).toBe(DEFAULT_PRODUCT_1.name);
     expect(result.current.data?.total).toBe(2);
   });
 
@@ -168,6 +168,7 @@ describe("useCreateProduct", () => {
     // Verify cache invalidation
     expect(invalidateSpy).toHaveBeenCalledWith(
       expect.objectContaining({
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
         queryKey: expect.arrayContaining(["catalog", "products"]),
       }),
     );
@@ -259,6 +260,7 @@ describe("useUpdateProduct", () => {
     // Cache invalidation
     expect(invalidateSpy).toHaveBeenCalledWith(
       expect.objectContaining({
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
         queryKey: expect.arrayContaining(["catalog", "products"]),
       }),
     );

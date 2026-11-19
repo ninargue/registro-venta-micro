@@ -4,18 +4,21 @@ import type { RouteObject } from "react-router";
 import { CounterShellContainer } from "@/features/auth/containers/CounterShellContainer";
 import { LoginContainer } from "@/features/auth/containers/LoginContainer";
 
+// eslint-disable-next-line react-refresh/only-export-components
 const LazyCatalogListContainer = lazy(() =>
   import("@/features/catalog/containers/CatalogListContainer").then((m) => ({
     default: m.CatalogListContainer,
   })),
 );
 
+// eslint-disable-next-line react-refresh/only-export-components
 const LazyProductCreateContainer = lazy(() =>
   import("@/features/catalog/containers/ProductCreateContainer").then((m) => ({
     default: m.ProductCreateContainer,
   })),
 );
 
+// eslint-disable-next-line react-refresh/only-export-components
 const LazyProductEditContainer = lazy(() =>
   import("@/features/catalog/containers/ProductEditContainer").then((m) => ({
     default: m.ProductEditContainer,

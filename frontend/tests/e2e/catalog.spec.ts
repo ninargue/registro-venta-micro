@@ -90,7 +90,6 @@ test("R-15: camino crítico — login → /catalog → agregar producto → veri
 
   await page.route("**/api/v1/catalog/products**", async (route) => {
     const request = route.request();
-    const url = new URL(request.url());
 
     if (request.method() === "GET") {
       const items = productCreated
