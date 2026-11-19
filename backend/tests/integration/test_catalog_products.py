@@ -1,6 +1,6 @@
 import time
 import uuid
-from collections.abc import Iterator
+from collections.abc import AsyncGenerator, Iterator
 from contextlib import contextmanager
 from decimal import Decimal
 from typing import Any
@@ -13,6 +13,7 @@ from sqlalchemy.engine import Engine
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings
+from app.core.db import get_tenant_db
 from app.main import app
 
 TEST_JWT_SECRET = "test-jwt-secret-key-for-catalog-tests-32b"
@@ -396,6 +397,69 @@ async def test_create_duplicate_non_null_code_same_business_returns_409(
 
 
 @pytest.mark.asyncio
+async def test_duplicate_code_409_uses_savepoint_and_keeps_outer_transaction_healthy(
+    catalog_auth_env: None,
+    db_session: AsyncSession,
+) -> None:
+    """Scenario: Duplicate product code 409 uses a savepoint (begin_nested)
+    so the outer transaction is not aborted with InFailedSQLTransactionError.
+    """
+    user_id = str(uuid.uuid4())
+    business_id = str(uuid.uuid4())
+
+    async with db_session.begin():
+        await _seed_business(db_session, business_id)
+        await _seed_business_user(db_session, business_id, user_id, role="owner")
+        await _seed_product(
+            db_session,
+            business_id=business_id,
+            code="DUP-SP-01",
+            name="Original Savepoint",
+        )
+
+    async def _override_get_tenant_db() -> AsyncGenerator[AsyncSession]:
+        yield db_session
+
+    cookies = _make_jwt_cookie(user_id=user_id, business_id=business_id, role="owner")
+    app.dependency_overrides[get_tenant_db] = _override_get_tenant_db
+    try:
+        async with db_session.begin():
+            await db_session.execute(text("SET LOCAL ROLE app_api"))
+            await db_session.execute(
+                text("SELECT set_config('app.current_business_id', :b_id, true)"),
+                {"b_id": business_id},
+            )
+            await db_session.execute(
+                text("SELECT set_config('app.current_user_id', :u_id, true)"),
+                {"u_id": user_id},
+            )
+
+            transport = httpx.ASGITransport(app=app)
+            async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+                dup_resp = await client.post(
+                    CATALOG_PRODUCTS_URL,
+                    cookies=cookies,
+                    json={"code": "DUP-SP-01", "name": "Duplicado", "sale_price": "200.00"},
+                )
+                _assert_uniform_error_response(dup_resp, 409, "PRODUCT_CODE_ALREADY_EXISTS")
+
+                # Without begin_nested(), the outer transaction would be aborted
+                # (InFailedSQLTransactionError) on any subsequent SQL statement.
+                count_result = await db_session.execute(
+                    text("SELECT COUNT(*) FROM products WHERE business_id = :b_id"),
+                    {"b_id": business_id},
+                )
+                assert count_result.scalar_one() == 1
+
+                list_resp = await client.get(CATALOG_PRODUCTS_URL, cookies=cookies)
+                assert list_resp.status_code == 200
+                assert list_resp.json()["total"] == 1
+    finally:
+        app.dependency_overrides.pop(get_tenant_db, None)
+        await _cleanup_businesses(db_session, [business_id])
+
+
+@pytest.mark.asyncio
 async def test_exact_decimal_persistence_and_string_serialization(
     catalog_auth_env: None,
     db_session: AsyncSession,
@@ -576,6 +640,84 @@ async def test_reject_nul_byte_in_search_query_parameter(catalog_auth_env: None)
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "query_params",
+    [
+        {"limit": 0},
+        {"limit": -1},
+        {"limit": 201},
+        {"offset": -1},
+        {"q": "a" * 151},
+    ],
+)
+async def test_reject_invalid_list_query_bounds(
+    catalog_auth_env: None,
+    query_params: dict[str, Any],
+) -> None:
+    """Scenario: Reject out-of-bounds limit (1..200), negative offset,
+    and oversized search query (>150 chars) with 422 VALIDATION_ERROR.
+    """
+    cookies = _make_jwt_cookie(
+        user_id=str(uuid.uuid4()),
+        business_id=str(uuid.uuid4()),
+        role="owner",
+    )
+    transport = httpx.ASGITransport(app=app)
+    with _capture_sql_statements() as sql_log:
+        async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+            response = await client.get(
+                CATALOG_PRODUCTS_URL,
+                params=query_params,
+                cookies=cookies,
+            )
+
+    _assert_uniform_error_response(response, 422, "VALIDATION_ERROR")
+    assert not any("from products" in stmt for stmt, _ in sql_log)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "query_params",
+    [
+        {"limit": 1, "offset": 0},
+        {"limit": 200, "offset": 0},
+        {"q": "a" * 150},
+    ],
+)
+async def test_accept_valid_list_query_boundary_values(
+    catalog_auth_env: None,
+    db_session: AsyncSession,
+    query_params: dict[str, Any],
+) -> None:
+    """Scenario: Accept valid boundary values for limit (1, 200), offset (0),
+    and search query length (150 chars).
+    """
+    user_id = str(uuid.uuid4())
+    business_id = str(uuid.uuid4())
+
+    async with db_session.begin():
+        await _seed_business(db_session, business_id)
+        await _seed_business_user(db_session, business_id, user_id, role="owner")
+
+    cookies = _make_jwt_cookie(user_id=user_id, business_id=business_id, role="owner")
+    try:
+        transport = httpx.ASGITransport(app=app)
+        async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+            response = await client.get(
+                CATALOG_PRODUCTS_URL,
+                params=query_params,
+                cookies=cookies,
+            )
+
+        assert response.status_code == 200
+        body = response.json()
+        assert body["items"] == []
+        assert body["total"] == 0
+    finally:
+        await _cleanup_businesses(db_session, [business_id])
+
+
+@pytest.mark.asyncio
 async def test_list_active_products_ordered_deterministically_with_negative_stock(
     catalog_auth_env: None,
     db_session: AsyncSession,
@@ -674,6 +816,18 @@ async def test_search_products_case_insensitive_with_wildcard_escaping(
             name="Otro Producto",
             code="SKU001",
         )
+        await _seed_product(
+            db_session,
+            business_id=business_id,
+            name="Cable 2\\3",
+            code="SKU\\01",
+        )
+        await _seed_product(
+            db_session,
+            business_id=business_id,
+            name="Cable 23",
+            code="SKU01",
+        )
 
     cookies = _make_jwt_cookie(user_id=user_id, business_id=business_id, role="owner")
     try:
@@ -694,6 +848,21 @@ async def test_search_products_case_insensitive_with_wildcard_escaping(
                 params={"q": "DESCUENTO"},
                 cookies=cookies,
             )
+            backslash_name_resp = await client.get(
+                CATALOG_PRODUCTS_URL,
+                params={"q": "2\\3"},
+                cookies=cookies,
+            )
+            backslash_code_resp = await client.get(
+                CATALOG_PRODUCTS_URL,
+                params={"q": "sku\\01"},
+                cookies=cookies,
+            )
+            backslash_only_resp = await client.get(
+                CATALOG_PRODUCTS_URL,
+                params={"q": "\\"},
+                cookies=cookies,
+            )
 
         assert pct_resp.status_code == 200
         assert pct_resp.json()["total"] == 1
@@ -709,6 +878,18 @@ async def test_search_products_case_insensitive_with_wildcard_escaping(
             "Descuento 10%",
             "Descuento 100",
         ]
+
+        assert backslash_name_resp.status_code == 200
+        assert backslash_name_resp.json()["total"] == 1
+        assert [p["name"] for p in backslash_name_resp.json()["items"]] == ["Cable 2\\3"]
+
+        assert backslash_code_resp.status_code == 200
+        assert backslash_code_resp.json()["total"] == 1
+        assert [p["code"] for p in backslash_code_resp.json()["items"]] == ["SKU\\01"]
+
+        assert backslash_only_resp.status_code == 200
+        assert backslash_only_resp.json()["total"] == 1
+        assert [p["name"] for p in backslash_only_resp.json()["items"]] == ["Cable 2\\3"]
     finally:
         await _cleanup_businesses(db_session, [business_id])
 

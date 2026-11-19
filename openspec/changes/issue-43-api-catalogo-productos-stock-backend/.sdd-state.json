@@ -6,13 +6,13 @@
   "errors": [],
   "backend_snapshots": {
     "tests": {
-      "captured_at": "2026-11-19T02:34:38.888Z",
+      "captured_at": "2026-11-19T03:48:31.729Z",
       "file_count": 7,
-      "digest": "6e6a66962c23bd7ecffc6f1f85508cffb959026c98ab59b8f59cb3b7bb8a203c",
+      "digest": "af68b142110d035e7dfcbdd59c80370ec7846a9d442a48328f00a6818145b448",
       "files": {
         "backend/tests/conftest.py": "840e646a51ccf0c1e2faaac0b3368a784570bae9190616e6003720a66095fcfd",
         "backend/tests/integration/test_auth_onboarding.py": "dd03f1a7e34b86633696792f5322b940cc73d575d75f31d07cb96007cba847bb",
-        "backend/tests/integration/test_catalog_products.py": "195a5a76fd7d644ca9fa250c4e528429b4c7baf2e90c9462867c512fc0a008c6",
+        "backend/tests/integration/test_catalog_products.py": "19da768b01465314c4e88c4e86ffda6aa6da4fd6b7c152a69047dab11958f032",
         "backend/tests/integration/test_db_businesses.py": "5269539b93a33bfaa991ff5d2f01d522c97dd3c609beca2a98462f6e0a9b250d",
         "backend/tests/integration/test_db_products.py": "f461af385a79188db4e49fd3dd951b5892cc588b644c04bd10a8ad182530dbb2",
         "backend/tests/unit/test_auth_schemas.py": "f1410ff384f81fd0929981dad351fe1bf84f044790aefd8d655882331fac5bf5",
