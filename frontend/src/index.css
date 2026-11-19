@@ -17,7 +17,12 @@
   --color-border-dark: #374151;
   --color-error: #dc2626;
   --color-error-light: #fef2f2;
+  --color-error-dark: #450a0a;
+  --color-error-border-light: #fecaca;
+  --color-error-border-dark: #991b1b;
   --color-success: #16a34a;
+
+  --radius-control: 0.5rem;
 
   --font-sans:
     system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial,
