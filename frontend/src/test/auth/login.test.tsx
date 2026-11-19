@@ -182,7 +182,7 @@ describe("Login screen (Design-Blind)", () => {
     await waitFor(() => {
       expect(router.state.location.pathname).toBe("/");
     });
-    expect(screen.getByText(DEFAULT_TEST_BUSINESS.name)).toBeInTheDocument();
+    expect(await screen.findByText(DEFAULT_TEST_BUSINESS.name)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Cerrar sesión" })).toBeInTheDocument();
   });
 
