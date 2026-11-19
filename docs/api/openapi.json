@@ -540,6 +540,98 @@
           }
         }
       }
+    },
+    "/api/v1/sales": {
+      "post": {
+        "tags": [
+          "sales"
+        ],
+        "summary": "Create Sale",
+        "description": "Registra una venta de forma transaccional e idempotente para el comercio autenticado.",
+        "operationId": "create_sale_api_v1_sales_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SaleCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SaleResponse"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Idempotent retry returning previously persisted sale",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SaleResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Content",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -1028,6 +1120,224 @@
         "type": "object",
         "title": "ProductUpdate",
         "description": "Payload de entrada para actualizar parcialmente un producto en PATCH."
+      },
+      "SaleCreate": {
+        "properties": {
+          "client_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Client Id",
+            "description": "Identificador UUID v4 generado en cliente para idempotencia"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/SaleItemCreate"
+            },
+            "type": "array",
+            "maxItems": 500,
+            "minItems": 1,
+            "title": "Items",
+            "description": "Líneas de la venta"
+          },
+          "payments": {
+            "items": {
+              "$ref": "#/components/schemas/SalePaymentCreate"
+            },
+            "type": "array",
+            "maxItems": 20,
+            "minItems": 1,
+            "title": "Payments",
+            "description": "Desglose de pagos"
+          }
+        },
+        "type": "object",
+        "required": [
+          "client_id",
+          "items",
+          "payments"
+        ],
+        "title": "SaleCreate",
+        "description": "Payload de entrada para registrar una venta en POST /api/v1/sales."
+      },
+      "SaleItemCreate": {
+        "properties": {
+          "product_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Product Id",
+            "description": "Identificador del producto"
+          },
+          "quantity": {
+            "type": "string",
+            "pattern": "^\\d{1,10}(\\.\\d{1,2})?$",
+            "format": "decimal",
+            "title": "Quantity",
+            "description": "Cantidad vendida (string decimal exacto, sin float)",
+            "examples": [
+              "2.00"
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "product_id",
+          "quantity"
+        ],
+        "title": "SaleItemCreate",
+        "description": "Línea de producto en una solicitud de venta."
+      },
+      "SaleItemResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "product_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Product Id"
+          },
+          "product_name": {
+            "type": "string",
+            "title": "Product Name"
+          },
+          "quantity": {
+            "type": "string",
+            "title": "Quantity"
+          },
+          "unit_price": {
+            "type": "string",
+            "title": "Unit Price"
+          },
+          "subtotal": {
+            "type": "string",
+            "title": "Subtotal"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "product_id",
+          "product_name",
+          "quantity",
+          "unit_price",
+          "subtotal"
+        ],
+        "title": "SaleItemResponse",
+        "description": "Línea de comprobante de venta (omite unit_cost intencionalmente)."
+      },
+      "SalePaymentCreate": {
+        "properties": {
+          "payment_method": {
+            "type": "string",
+            "enum": [
+              "cash",
+              "card",
+              "transfer"
+            ],
+            "title": "Payment Method",
+            "description": "Medio de pago admitido en MVP",
+            "examples": [
+              "cash"
+            ]
+          },
+          "amount": {
+            "type": "string",
+            "pattern": "^\\d{1,10}(\\.\\d{1,2})?$",
+            "format": "decimal",
+            "title": "Amount",
+            "description": "Importe imputado a este medio de pago (string decimal exacto)",
+            "examples": [
+              "3000.00"
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "payment_method",
+          "amount"
+        ],
+        "title": "SalePaymentCreate",
+        "description": "Medio de pago e importe imputado en una venta."
+      },
+      "SalePaymentResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "payment_method": {
+            "type": "string",
+            "enum": [
+              "cash",
+              "card",
+              "transfer"
+            ],
+            "title": "Payment Method"
+          },
+          "amount": {
+            "type": "string",
+            "title": "Amount"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "payment_method",
+          "amount"
+        ],
+        "title": "SalePaymentResponse",
+        "description": "Pago registrado en el comprobante de venta."
+      },
+      "SaleResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "client_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Client Id"
+          },
+          "total_amount": {
+            "type": "string",
+            "title": "Total Amount"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/SaleItemResponse"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "payments": {
+            "items": {
+              "$ref": "#/components/schemas/SalePaymentResponse"
+            },
+            "type": "array",
+            "title": "Payments"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "client_id",
+          "total_amount",
+          "items",
+          "payments",
+          "created_at"
+        ],
+        "title": "SaleResponse",
+        "description": "Comprobante de venta persistido."
       },
       "UserPayload": {
         "properties": {
