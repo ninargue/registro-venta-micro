@@ -93,7 +93,9 @@ describe("DailyReportView — Catálogo ejecutable por estado y accesibilidad De
 
     expect(screen.getByText("Margen Bruto")).toBeInTheDocument();
     expect(screen.getByText("$9.000,00")).toBeInTheDocument();
+    expect(screen.getByText("$9.000,00")).not.toHaveClass("text-error");
     expect(screen.getByText(/30\.00%/)).toBeInTheDocument();
+    expect(screen.getByText(/30\.00%/)).not.toHaveClass("text-error");
 
     expect(screen.getByText("Costo Mercadería")).toBeInTheDocument();
     expect(screen.getByText("$21.000,00")).toBeInTheDocument();
@@ -115,7 +117,9 @@ describe("DailyReportView — Catálogo ejecutable por estado y accesibilidad De
 
     expect(screen.getByText("Margen Bruto")).toBeInTheDocument();
     expect(screen.getByText("-$250,00")).toBeInTheDocument();
+    expect(screen.getByText("-$250,00")).toHaveClass("text-error");
     expect(screen.getByText(/-25\.00%/)).toBeInTheDocument();
+    expect(screen.getByText(/-25\.00%/)).toHaveClass("text-error");
   });
 
   it("Scenario: Payment method breakdown renders amounts and proportions for all three methods", () => {

@@ -1,0 +1,36 @@
+{
+  "schema_version": 1,
+  "layer": "frontend",
+  "max_repeat": 2,
+  "attempt": 1,
+  "consecutive_same_signature": 1,
+  "last_signature": "9ebf8d6f6504",
+  "loop_detected": false,
+  "promoted": false,
+  "errors": [
+    {
+      "attempt": 1,
+      "timestamp": "2026-11-19T22:50:06.037Z",
+      "layer": "frontend",
+      "step": "7",
+      "error_signature": "9ebf8d6f6504",
+      "message": "frontend-mutation-tester no escribio mutation-report.md tras ~30min (missing_file)",
+      "avoid": "acotar mutantes a ~2 por familia FM1-FM5 y correr solo la suite afectada, no la completa"
+    }
+  ],
+  "pending_dispatches": [
+    {
+      "agent": "frontend-mutation-tester",
+      "step": "7",
+      "conversation_id": "step7-mutation-retry",
+      "expected_artifact": "openspec/changes/us-04-t10-reporte-diario-frontend/mutation-report.md",
+      "expected_markers": [
+        "TESTS BLINDADOS",
+        "TESTS COMPLACIENTES"
+      ],
+      "timeout_seconds": 180,
+      "started_at": "2026-11-19T22:50:06.063Z",
+      "attempt": 2
+    }
+  ]
+}

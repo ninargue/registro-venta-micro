@@ -51,5 +51,14 @@ describe("formatters — Formateo monetario y porcentual sin deriva de punto flo
     it("Scenario: Day without sales displays empty state notice and zero KPIs (state: empty) — protege contra división por cero devolviendo 0.00% cuando total_sales es 0.00", () => {
       expect(calculatePaymentSharePercentage("0.00", "0.00")).toBe("0.00%");
     });
+
+    it("Scenario: Day without sales displays empty state notice and zero KPIs (state: empty) — con total_sales 0.00 y monto de método positivo no lanza y devuelve 0.00%", () => {
+      expect(() => calculatePaymentSharePercentage("100.00", "0.00")).not.toThrow();
+      expect(calculatePaymentSharePercentage("100.00", "0.00")).toBe("0.00%");
+    });
+
+    it("Scenario: Day without sales displays empty state notice and zero KPIs (state: empty) — con total_sales negativo (payload inconsistente) devuelve 0.00% sin dividir", () => {
+      expect(calculatePaymentSharePercentage("100.00", "-5.00")).toBe("0.00%");
+    });
   });
 });

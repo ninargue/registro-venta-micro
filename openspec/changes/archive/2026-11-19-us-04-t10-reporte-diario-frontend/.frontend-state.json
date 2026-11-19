@@ -120,6 +120,19 @@
       "status": "tests-snapshot",
       "tests_hash": "465c17666eaca0f5c404ef9558cb53c7683a8ff968b85e7a7029fa543ef0b6f2",
       "ts": "2026-11-19T21:02:57.280Z"
+    },
+    {
+      "node": "qa",
+      "attempt": 0,
+      "status": "passed",
+      "snapshot_hash": "d9e806e8be3fe260526661e7814aec3c0c3b6e4aab14e1e071a39e80689e8b12",
+      "ts": "2026-11-19T22:54:24.530Z"
+    },
+    {
+      "node": "qa",
+      "status": "tests-snapshot",
+      "tests_hash": "f1cf701f5688445e7998abec24ab7bbe2732afb27afd119cd0d822625c71a0ad",
+      "ts": "2026-11-19T22:54:24.532Z"
     }
   ]
 }
