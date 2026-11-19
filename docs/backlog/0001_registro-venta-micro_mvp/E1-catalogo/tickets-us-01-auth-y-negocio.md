@@ -20,9 +20,10 @@
 - **Issue GitHub:** [#40](https://github.com/ninargue/registro-venta-micro/issues/40)
 - **Alcance / Capa:** Frontend (`frontend/src/app`)
 - **Talla:** `S` | **Riesgo:** Bajo
-- **Dependencias:** `TICKET-01`
-- **Descripción:** Crear la pantalla de login en la PWA con formulario de credenciales. Si el usuario no tiene comercio asignado, dirigir a pantalla simple de bienvenida/onboarding solicitando nombre de negocio y país, persistiendo el token y `business_id` en almacenamiento local seguro (`localStorage`).
+- **Dependencias:** `TICKET-01`, [#56](https://github.com/ninargue/registro-venta-micro/issues/56)
+- **Descripción:** Crear la pantalla de login en la PWA con formulario de credenciales. Si el usuario no tiene comercio asignado (`requires_onboarding: true`), desplegar modal accesible de bienvenida/onboarding solicitando nombre de negocio y país (`POST /api/v1/auth/onboarding`). La sesión se gestiona vía cookies seguras `HttpOnly; SameSite=Strict` emitidas por el backend (`credentials: 'include'`); en almacenamiento local o estado cliente únicamente se persisten los metadatos públicos de contexto (`user`, `business_id`, nombre del negocio) para el renderizado de la UI, sin almacenar tokens JWT en `localStorage`.
 - **Definición de Terminado (DoD):**
-  - [ ] Formulario accesible con validación de campos obligatorios.
-  - [ ] Pantalla/modal de onboarding para primer acceso.
-  - [ ] Redirección automática al mostrador al completar la autenticación.
+  - [ ] Formulario accesible con validación de campos obligatorios y feedback de error.
+  - [ ] Modal accesible de onboarding para primer acceso.
+  - [ ] Manejo de sesión vía cookie `HttpOnly` (`credentials: 'include'`), persistiendo únicamente metadatos de contexto en cliente.
+  - [ ] Redirección automática al mostrador (`/`) al completar la autenticación.

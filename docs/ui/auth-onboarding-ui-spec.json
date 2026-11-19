@@ -1,0 +1,167 @@
+{
+  "version": "1.0",
+  "mode": "text-to-wireframe",
+  "name": "auth-onboarding",
+  "description": "Especificación visual y wireframe accesible para el inicio de sesión y modal de bienvenida/onboarding del micronegocio.",
+  "screens": [
+    {
+      "id": "login-screen",
+      "title": "Iniciar Sesión — registro-venta-micro",
+      "route": "/login",
+      "states": ["loading", "empty", "error", "ready"],
+      "elements": [
+        {
+          "id": "login-card",
+          "role": "region",
+          "label": "Tarjeta de inicio de sesión",
+          "required": true
+        },
+        {
+          "id": "login-title",
+          "role": "heading",
+          "label": "registro-venta-micro",
+          "level": 1,
+          "required": true
+        },
+        {
+          "id": "login-subtitle",
+          "role": "text",
+          "label": "Ingresa las credenciales de tu negocio para comenzar a operar.",
+          "required": false
+        },
+        {
+          "id": "login-email-input",
+          "role": "textbox",
+          "label": "Correo electrónico",
+          "type": "email",
+          "placeholder": "dueño@negocio.com",
+          "required": true,
+          "minTouchTarget": "48px"
+        },
+        {
+          "id": "login-password-input",
+          "role": "textbox",
+          "label": "Contraseña",
+          "type": "password",
+          "required": true,
+          "minTouchTarget": "48px"
+        },
+        {
+          "id": "login-error-alert",
+          "role": "alert",
+          "label": "Mensaje de error accesible (credenciales inválidas o servicio no disponible)",
+          "required": false
+        },
+        {
+          "id": "login-submit-button",
+          "role": "button",
+          "label": "Iniciar Sesión",
+          "action": "onSubmit",
+          "required": true,
+          "minTouchTarget": "48px"
+        },
+        {
+          "id": "theme-toggle-button",
+          "role": "button",
+          "label": "Alternar modo claro / modo oscuro",
+          "action": "toggleTheme",
+          "required": false,
+          "minTouchTarget": "48px"
+        }
+      ]
+    },
+    {
+      "id": "onboarding-modal",
+      "title": "Bienvenida a tu Negocio — Primer Acceso",
+      "type": "modal",
+      "states": ["loading", "error", "ready"],
+      "elements": [
+        {
+          "id": "onboarding-dialog",
+          "role": "dialog",
+          "label": "Modal de configuración inicial de comercio",
+          "ariaModal": true,
+          "required": true
+        },
+        {
+          "id": "onboarding-heading",
+          "role": "heading",
+          "label": "¡Bienvenido! Configura tu comercio",
+          "level": 2,
+          "required": true
+        },
+        {
+          "id": "onboarding-description",
+          "role": "text",
+          "label": "Para comenzar a registrar ventas, indica el nombre de tu negocio y tu país de operación.",
+          "required": true
+        },
+        {
+          "id": "onboarding-name-input",
+          "role": "textbox",
+          "label": "Nombre del negocio",
+          "placeholder": "Ej. Kiosco Central",
+          "maxLength": 100,
+          "required": true,
+          "minTouchTarget": "48px"
+        },
+        {
+          "id": "onboarding-country-select",
+          "role": "combobox",
+          "label": "País de operación",
+          "description": "Determina la moneda y la zona horaria de tus cierres de caja.",
+          "required": true,
+          "minTouchTarget": "48px"
+        },
+        {
+          "id": "onboarding-error-alert",
+          "role": "alert",
+          "label": "Alerta de error de validación o conflicto",
+          "required": false
+        },
+        {
+          "id": "onboarding-submit-button",
+          "role": "button",
+          "label": "Crear Comercio y Entrar",
+          "action": "onSubmitOnboarding",
+          "required": true,
+          "minTouchTarget": "48px"
+        }
+      ]
+    }
+  ],
+  "tokens": {
+    "colors": {
+      "primary": "#4F46E5",
+      "primaryHover": "#4338CA",
+      "primaryLight": "#EEF2FF",
+      "primaryDark": "#3730A3",
+      "backgroundLight": "#F9FAFB",
+      "backgroundDark": "#111827",
+      "surfaceLight": "#FFFFFF",
+      "surfaceDark": "#1F2937",
+      "textLight": "#111827",
+      "textDark": "#F9FAFB",
+      "textMutedLight": "#4B5563",
+      "textMutedDark": "#9CA3AF",
+      "borderLight": "#E5E7EB",
+      "borderDark": "#374151",
+      "error": "#DC2626",
+      "errorLight": "#FEF2F2",
+      "success": "#16A34A"
+    },
+    "spacing": {
+      "touchTarget": "48px",
+      "controlHeight": "48px",
+      "containerPadding": "16px",
+      "gap": "16px",
+      "borderRadius": "8px"
+    },
+    "typography": {
+      "fontFamily": "system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif",
+      "titleSize": "1.5rem",
+      "bodySize": "1rem",
+      "smallSize": "0.875rem"
+    }
+  }
+}
