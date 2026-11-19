@@ -1230,3 +1230,701 @@ async def test_reject_oversized_offset_without_500(
 
     assert response.status_code == 422
     assert response.json()["code"] == "VALIDATION_ERROR"
+
+
+# ==============================================================================
+# PATCH /api/v1/catalog/products/{product_id} (Partial Product Update)
+# ==============================================================================
+
+
+@pytest.mark.asyncio
+async def test_patch_product_partial_update_preserves_omitted_fields_including_negative_stock(
+    catalog_auth_env: None,
+    db_session: AsyncSession,
+) -> None:
+    """Scenario: Successful partial update of a subset of attributes preserves omitted fields."""
+    user_id = str(uuid.uuid4())
+    business_id = str(uuid.uuid4())
+
+    async with db_session.begin():
+        await _seed_business(db_session, business_id)
+        await _seed_business_user(db_session, business_id, user_id, role="owner")
+        product_id = await _seed_product(
+            db_session,
+            business_id=business_id,
+            code="SKU-001",
+            name="Yerba Mate",
+            sale_price=Decimal("3000.00"),
+            cost_price=Decimal("2000.00"),
+            stock=Decimal("-1.50"),
+            is_active=True,
+        )
+        initial_row = (
+            (
+                await db_session.execute(
+                    text("SELECT created_at, updated_at FROM products WHERE id = :id"),
+                    {"id": product_id},
+                )
+            )
+            .mappings()
+            .one()
+        )
+        initial_created_at = initial_row["created_at"]
+        initial_updated_at = initial_row["updated_at"]
+
+    cookies = _make_jwt_cookie(user_id=user_id, business_id=business_id, role="owner")
+    try:
+        transport = httpx.ASGITransport(app=app)
+        with _capture_sql_statements() as sql_log:
+            async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+                response = await client.patch(
+                    f"{CATALOG_PRODUCTS_URL}/{product_id}",
+                    cookies=cookies,
+                    json={
+                        "sale_price": "3500.50",
+                        "cost_price": "2200.00",
+                    },
+                )
+
+        assert response.status_code == 200
+        body = response.json()
+        assert body["id"] == product_id
+        assert body["code"] == "SKU-001"
+        assert body["name"] == "Yerba Mate"
+        assert body["sale_price"] == "3500.50"
+        assert body["cost_price"] == "2200.00"
+        assert body["stock"] == "-1.50"
+        assert body["is_active"] is True
+
+        update_idx = next(i for i, (stmt, _) in enumerate(sql_log) if "update products" in stmt)
+        assert any("set local role app_api" in stmt for stmt, _ in sql_log[:update_idx])
+        assert any(
+            "set_config" in stmt and "app.current_business_id" in stmt and business_id in params
+            for stmt, params in sql_log[:update_idx]
+        )
+
+        async with db_session.begin():
+            row = (
+                (
+                    await db_session.execute(
+                        text(
+                            """
+                            SELECT business_id, code, name, sale_price, cost_price,
+                                   stock, is_active, created_at, updated_at
+                            FROM products WHERE id = :id
+                            """
+                        ),
+                        {"id": product_id},
+                    )
+                )
+                .mappings()
+                .one()
+            )
+            assert str(row["business_id"]) == business_id
+            assert row["code"] == "SKU-001"
+            assert row["name"] == "Yerba Mate"
+            assert row["sale_price"] == Decimal("3500.50")
+            assert row["cost_price"] == Decimal("2200.00")
+            assert row["stock"] == Decimal("-1.50")
+            assert row["is_active"] is True
+            assert row["created_at"] == initial_created_at
+            assert row["updated_at"] > initial_updated_at
+    finally:
+        await _cleanup_businesses(db_session, [business_id])
+
+
+@pytest.mark.asyncio
+async def test_patch_product_all_editable_attributes_and_clear_code_to_null(
+    catalog_auth_env: None,
+    db_session: AsyncSession,
+) -> None:
+    """Scenario: Successful update of all editable attributes
+    including clearing optional code to null.
+    """
+    user_id = str(uuid.uuid4())
+    business_id = str(uuid.uuid4())
+
+    async with db_session.begin():
+        await _seed_business(db_session, business_id)
+        await _seed_business_user(db_session, business_id, user_id, role="owner")
+        await _seed_product(
+            db_session,
+            business_id=business_id,
+            code=None,
+            name="Otro Sin Codigo",
+        )
+        product_id = await _seed_product(
+            db_session,
+            business_id=business_id,
+            code="SKU-CLEAR",
+            name="Nombre Viejo",
+            sale_price=Decimal("1000.00"),
+            cost_price=Decimal("500.00"),
+            stock=Decimal("5.00"),
+        )
+
+    cookies = _make_jwt_cookie(user_id=user_id, business_id=business_id, role="owner")
+    try:
+        transport = httpx.ASGITransport(app=app)
+        async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+            response = await client.patch(
+                f"{CATALOG_PRODUCTS_URL}/{product_id}",
+                cookies=cookies,
+                json={
+                    "code": None,
+                    "name": "  Nombre Nuevo Trim  ",
+                    "sale_price": "1800.25",
+                    "cost_price": "900.10",
+                    "stock": "0.00",
+                },
+            )
+
+        assert response.status_code == 200
+        body = response.json()
+        assert body["id"] == product_id
+        assert body["code"] is None
+        assert body["name"] == "Nombre Nuevo Trim"
+        assert body["sale_price"] == "1800.25"
+        assert body["cost_price"] == "900.10"
+        assert body["stock"] == "0.00"
+    finally:
+        await _cleanup_businesses(db_session, [business_id])
+
+
+@pytest.mark.asyncio
+async def test_patch_product_keeping_own_code_or_matching_another_business_code_succeeds(
+    catalog_auth_env: None,
+    db_session: AsyncSession,
+) -> None:
+    """Scenario: Updating a product keeping its own code or matching a code
+    from another business succeeds.
+    """
+    business_a = str(uuid.uuid4())
+    business_b = str(uuid.uuid4())
+    owner_a = str(uuid.uuid4())
+    owner_b = str(uuid.uuid4())
+
+    async with db_session.begin():
+        await _seed_business(db_session, business_a, name="Business A")
+        await _seed_business(db_session, business_b, name="Business B")
+        await _seed_business_user(db_session, business_a, owner_a, role="owner")
+        await _seed_business_user(db_session, business_b, owner_b, role="owner")
+        p1_id = await _seed_product(
+            db_session,
+            business_id=business_a,
+            code="ONLY-IN-A",
+            name="Prod A1",
+        )
+        p2_id = await _seed_product(
+            db_session,
+            business_id=business_b,
+            code="OLD-02",
+            name="Prod B2",
+        )
+
+    cookies_a = _make_jwt_cookie(user_id=owner_a, business_id=business_a, role="owner")
+    cookies_b = _make_jwt_cookie(user_id=owner_b, business_id=business_b, role="owner")
+    try:
+        transport = httpx.ASGITransport(app=app)
+        async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+            resp_a = await client.patch(
+                f"{CATALOG_PRODUCTS_URL}/{p1_id}",
+                cookies=cookies_a,
+                json={"code": "ONLY-IN-A", "name": "Prod A1 Renombrado"},
+            )
+            resp_b = await client.patch(
+                f"{CATALOG_PRODUCTS_URL}/{p2_id}",
+                cookies=cookies_b,
+                json={"code": "ONLY-IN-A"},
+            )
+
+        assert resp_a.status_code == 200
+        assert resp_a.json()["code"] == "ONLY-IN-A"
+        assert resp_a.json()["name"] == "Prod A1 Renombrado"
+
+        assert resp_b.status_code == 200
+        assert resp_b.json()["code"] == "ONLY-IN-A"
+        assert resp_b.json()["name"] == "Prod B2"
+    finally:
+        await _cleanup_businesses(db_session, [business_a, business_b])
+
+
+@pytest.mark.asyncio
+async def test_patch_product_duplicate_code_same_business_returns_409_and_uses_savepoint(
+    catalog_auth_env: None,
+    db_session: AsyncSession,
+) -> None:
+    """Scenario: Updating code to an existing non-null code in the same business
+    returns 409 Conflict and rolls back savepoint cleanly.
+    """
+    user_id = str(uuid.uuid4())
+    business_id = str(uuid.uuid4())
+
+    async with db_session.begin():
+        await _seed_business(db_session, business_id)
+        await _seed_business_user(db_session, business_id, user_id, role="owner")
+        await _seed_product(
+            db_session,
+            business_id=business_id,
+            code="SKU-001",
+            name="Producto 1",
+        )
+        p2_id = await _seed_product(
+            db_session,
+            business_id=business_id,
+            code="SKU-002",
+            name="Producto 2",
+            sale_price=Decimal("500.00"),
+        )
+
+    async def _override_get_tenant_db() -> AsyncGenerator[AsyncSession]:
+        yield db_session
+
+    cookies = _make_jwt_cookie(user_id=user_id, business_id=business_id, role="owner")
+    app.dependency_overrides[get_tenant_db] = _override_get_tenant_db
+    try:
+        async with db_session.begin():
+            await db_session.execute(text("SET LOCAL ROLE app_api"))
+            await db_session.execute(
+                text("SELECT set_config('app.current_business_id', :b_id, true)"),
+                {"b_id": business_id},
+            )
+            await db_session.execute(
+                text("SELECT set_config('app.current_user_id', :u_id, true)"),
+                {"u_id": user_id},
+            )
+
+            transport = httpx.ASGITransport(app=app)
+            async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+                dup_resp = await client.patch(
+                    f"{CATALOG_PRODUCTS_URL}/{p2_id}",
+                    cookies=cookies,
+                    json={"code": "  SKU-001  ", "name": "Intento Duplicado"},
+                )
+                _assert_uniform_error_response(dup_resp, 409, "PRODUCT_CODE_ALREADY_EXISTS")
+
+                # Verify outer transaction is not aborted and P2 attributes remain intact
+                row = (
+                    (
+                        await db_session.execute(
+                            text("SELECT code, name, sale_price FROM products WHERE id = :id"),
+                            {"id": p2_id},
+                        )
+                    )
+                    .mappings()
+                    .one()
+                )
+                assert row["code"] == "SKU-002"
+                assert row["name"] == "Producto 2"
+                assert row["sale_price"] == Decimal("500.00")
+    finally:
+        app.dependency_overrides.pop(get_tenant_db, None)
+        await _cleanup_businesses(db_session, [business_id])
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "payload",
+    [
+        {"sale_price": 19.99},
+        {"cost_price": 5.5},
+        {"stock": 1.25},
+        {"sale_price": True},
+        {"cost_price": False},
+        {"stock": True},
+        {"sale_price": "NaN"},
+        {"cost_price": "Infinity"},
+        {"stock": "-Infinity"},
+        {"sale_price": "12.345"},
+        {"cost_price": "1.234"},
+        {"stock": "0.001"},
+        {"sale_price": "10000000000.00"},
+        {"cost_price": "10000000000.00"},
+        {"stock": "10000000000.00"},
+        {"sale_price": "1e30"},
+        {"sale_price": "1000000000000000000000000000"},
+    ],
+)
+async def test_patch_rejects_float_bool_nonfinite_excessive_decimals_and_overflow(
+    catalog_auth_env: None,
+    payload: dict[str, Any],
+) -> None:
+    """Scenario: Rejection of float, bool, non-finite decimals, excessive decimal places,
+    and numeric overflow on update.
+    """
+    cookies = _make_jwt_cookie(
+        user_id=str(uuid.uuid4()),
+        business_id=str(uuid.uuid4()),
+        role="owner",
+    )
+    product_id = str(uuid.uuid4())
+    transport = httpx.ASGITransport(app=app)
+    with _capture_sql_statements() as sql_log:
+        async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+            response = await client.patch(
+                f"{CATALOG_PRODUCTS_URL}/{product_id}",
+                cookies=cookies,
+                json=payload,
+            )
+
+    _assert_uniform_error_response(response, 422, "VALIDATION_ERROR")
+    assert not any("update products" in stmt for stmt, _ in sql_log)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "payload",
+    [
+        {"sale_price": "0.00"},
+        {"sale_price": "-1.00"},
+        {"cost_price": "-0.01"},
+        {"stock": "-0.01"},
+    ],
+)
+async def test_patch_rejects_non_positive_sale_price_negative_cost_or_negative_stock(
+    catalog_auth_env: None,
+    payload: dict[str, Any],
+) -> None:
+    """Scenario: Rejection of non-positive sale_price, negative cost_price,
+    or negative stock on update.
+    """
+    cookies = _make_jwt_cookie(
+        user_id=str(uuid.uuid4()),
+        business_id=str(uuid.uuid4()),
+        role="owner",
+    )
+    product_id = str(uuid.uuid4())
+    transport = httpx.ASGITransport(app=app)
+    with _capture_sql_statements() as sql_log:
+        async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+            response = await client.patch(
+                f"{CATALOG_PRODUCTS_URL}/{product_id}",
+                cookies=cookies,
+                json=payload,
+            )
+
+    _assert_uniform_error_response(response, 422, "VALIDATION_ERROR")
+    assert not any("update products" in stmt for stmt, _ in sql_log)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "payload",
+    [
+        {},
+        {"business_id": str(uuid.uuid4())},
+        {"name": None},
+        {"sale_price": None},
+        {"cost_price": None},
+        {"stock": None},
+    ],
+)
+async def test_patch_rejects_explicit_null_on_non_nullable_fields_or_empty_payload(
+    catalog_auth_env: None,
+    payload: dict[str, Any],
+) -> None:
+    """Scenario: Rejection of explicit null on non-nullable fields or empty update payload."""
+    cookies = _make_jwt_cookie(
+        user_id=str(uuid.uuid4()),
+        business_id=str(uuid.uuid4()),
+        role="owner",
+    )
+    product_id = str(uuid.uuid4())
+    transport = httpx.ASGITransport(app=app)
+    with _capture_sql_statements() as sql_log:
+        async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+            response = await client.patch(
+                f"{CATALOG_PRODUCTS_URL}/{product_id}",
+                cookies=cookies,
+                json=payload,
+            )
+
+    _assert_uniform_error_response(response, 422, "VALIDATION_ERROR")
+    assert not any("update products" in stmt for stmt, _ in sql_log)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "product_id_path,payload",
+    [
+        ("not-a-valid-uuid", {"name": "Valido"}),
+        (str(uuid.uuid4()), {"name": ""}),
+        (str(uuid.uuid4()), {"name": "   "}),
+        (str(uuid.uuid4()), {"code": ""}),
+        (str(uuid.uuid4()), {"code": "   "}),
+        (str(uuid.uuid4()), {"name": "a" * 151}),
+        (str(uuid.uuid4()), {"code": "c" * 51}),
+        (str(uuid.uuid4()), {"name": "Bad\x00Name"}),
+        (str(uuid.uuid4()), {"code": "Bad\x00Code"}),
+    ],
+)
+async def test_patch_rejects_blank_oversized_nul_bytes_or_invalid_product_id_uuid(
+    catalog_auth_env: None,
+    product_id_path: str,
+    payload: dict[str, Any],
+) -> None:
+    """Scenario: Rejection of blank strings, oversized strings, NUL bytes,
+    or invalid product_id UUID.
+    """
+    cookies = _make_jwt_cookie(
+        user_id=str(uuid.uuid4()),
+        business_id=str(uuid.uuid4()),
+        role="owner",
+    )
+    transport = httpx.ASGITransport(app=app)
+    with _capture_sql_statements() as sql_log:
+        async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+            response = await client.patch(
+                f"{CATALOG_PRODUCTS_URL}/{product_id_path}",
+                cookies=cookies,
+                json=payload,
+            )
+
+    _assert_uniform_error_response(response, 422, "VALIDATION_ERROR")
+    assert not any("products" in stmt for stmt, _ in sql_log)
+
+
+@pytest.mark.asyncio
+async def test_patch_unauthenticated_and_onboarding_pending_rejected_with_401_and_403(
+    catalog_auth_env: None,
+) -> None:
+    """Scenario: Unauthenticated or onboarding-pending update requests rejected with 401 and 403."""
+    product_id = str(uuid.uuid4())
+    onboarding_cookies = _make_jwt_cookie(
+        user_id=str(uuid.uuid4()),
+        business_id=None,
+        role=None,
+    )
+    transport = httpx.ASGITransport(app=app)
+    with _capture_sql_statements() as sql_log:
+        async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+            unauth_resp = await client.patch(
+                f"{CATALOG_PRODUCTS_URL}/{product_id}",
+                json={"name": "Nuevo"},
+            )
+            onb_resp = await client.patch(
+                f"{CATALOG_PRODUCTS_URL}/{product_id}",
+                cookies=onboarding_cookies,
+                json={"name": "Nuevo"},
+            )
+
+    _assert_uniform_error_response(unauth_resp, 401, "UNAUTHENTICATED")
+    _assert_uniform_error_response(onb_resp, 403, "ONBOARDING_REQUIRED")
+    assert not any("products" in stmt for stmt, _ in sql_log)
+
+
+@pytest.mark.asyncio
+async def test_patch_cashier_role_rejected_with_403_forbidden(
+    catalog_auth_env: None,
+    db_session: AsyncSession,
+) -> None:
+    """Scenario: Cashier role rejected with 403 Forbidden on product update."""
+    cashier_id = str(uuid.uuid4())
+    business_id = str(uuid.uuid4())
+
+    async with db_session.begin():
+        await _seed_business(db_session, business_id)
+        await _seed_business_user(db_session, business_id, cashier_id, role="cashier")
+        product_id = await _seed_product(
+            db_session,
+            business_id=business_id,
+            name="Intocable Por Cajero",
+            sale_price=Decimal("250.00"),
+        )
+
+    cookies = _make_jwt_cookie(user_id=cashier_id, business_id=business_id, role="cashier")
+    try:
+        transport = httpx.ASGITransport(app=app)
+        with _capture_sql_statements() as sql_log:
+            async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+                response = await client.patch(
+                    f"{CATALOG_PRODUCTS_URL}/{product_id}",
+                    cookies=cookies,
+                    json={"sale_price": "300.00"},
+                )
+
+        _assert_uniform_error_response(response, 403, "FORBIDDEN")
+        assert not any("update products" in stmt for stmt, _ in sql_log)
+    finally:
+        await _cleanup_businesses(db_session, [business_id])
+
+
+@pytest.mark.asyncio
+async def test_patch_non_existent_product_id_returns_404(
+    catalog_auth_env: None,
+    db_session: AsyncSession,
+) -> None:
+    """Scenario: Non-existent product_id returns 404 Not Found."""
+    user_id = str(uuid.uuid4())
+    business_id = str(uuid.uuid4())
+    missing_product_id = str(uuid.uuid4())
+
+    async with db_session.begin():
+        await _seed_business(db_session, business_id)
+        await _seed_business_user(db_session, business_id, user_id, role="owner")
+
+    cookies = _make_jwt_cookie(user_id=user_id, business_id=business_id, role="owner")
+    try:
+        transport = httpx.ASGITransport(app=app)
+        async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+            response = await client.patch(
+                f"{CATALOG_PRODUCTS_URL}/{missing_product_id}",
+                cookies=cookies,
+                json={"name": "No Existe"},
+            )
+
+        _assert_uniform_error_response(response, 404, "PRODUCT_NOT_FOUND")
+    finally:
+        await _cleanup_businesses(db_session, [business_id])
+
+
+@pytest.mark.asyncio
+async def test_patch_cross_tenant_product_id_returns_404_and_leaves_target_unmodified(
+    catalog_auth_env: None,
+    db_session: AsyncSession,
+) -> None:
+    """Scenario: Cross-tenant product_id returns 404 Not Found
+    without leaking existence or mutating data.
+    """
+    business_a = str(uuid.uuid4())
+    business_b = str(uuid.uuid4())
+    owner_a = str(uuid.uuid4())
+
+    async with db_session.begin():
+        await _seed_business(db_session, business_a, name="Tenant A")
+        await _seed_business(db_session, business_b, name="Tenant B")
+        await _seed_business_user(db_session, business_a, owner_a, role="owner")
+        p_b_id = await _seed_product(
+            db_session,
+            business_id=business_b,
+            code="B-SECRET",
+            name="Producto B",
+            sale_price=Decimal("700.00"),
+        )
+
+    cookies_a = _make_jwt_cookie(user_id=owner_a, business_id=business_a, role="owner")
+    try:
+        transport = httpx.ASGITransport(app=app)
+        with _capture_sql_statements() as sql_log:
+            async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+                response = await client.patch(
+                    f"{CATALOG_PRODUCTS_URL}/{p_b_id}",
+                    cookies=cookies_a,
+                    json={"name": "Hackeado", "sale_price": "1.00"},
+                )
+
+        _assert_uniform_error_response(response, 404, "PRODUCT_NOT_FOUND")
+        update_idx = next(i for i, (stmt, _) in enumerate(sql_log) if "update products" in stmt)
+        assert any("set local role app_api" in stmt for stmt, _ in sql_log[:update_idx])
+        assert any(
+            "set_config" in stmt and "app.current_business_id" in stmt and business_a in params
+            for stmt, params in sql_log[:update_idx]
+        )
+
+        async with db_session.begin():
+            row = (
+                (
+                    await db_session.execute(
+                        text(
+                            "SELECT business_id, code, name, sale_price "
+                            "FROM products WHERE id = :id"
+                        ),
+                        {"id": p_b_id},
+                    )
+                )
+                .mappings()
+                .one()
+            )
+            assert str(row["business_id"]) == business_b
+            assert row["code"] == "B-SECRET"
+            assert row["name"] == "Producto B"
+            assert row["sale_price"] == Decimal("700.00")
+    finally:
+        await _cleanup_businesses(db_session, [business_a, business_b])
+
+
+@pytest.mark.asyncio
+async def test_patch_ignores_client_supplied_business_id_and_immutable_fields(
+    catalog_auth_env: None,
+    db_session: AsyncSession,
+) -> None:
+    """Scenario: Client-supplied business_id or immutable metadata fields in payload are ignored."""
+    business_a = str(uuid.uuid4())
+    business_b = str(uuid.uuid4())
+    owner_a = str(uuid.uuid4())
+
+    async with db_session.begin():
+        await _seed_business(db_session, business_a, name="Tenant A")
+        await _seed_business(db_session, business_b, name="Tenant B")
+        await _seed_business_user(db_session, business_a, owner_a, role="owner")
+        p_a_id = await _seed_product(
+            db_session,
+            business_id=business_a,
+            name="Producto A",
+            sale_price=Decimal("1000.00"),
+        )
+
+    cookies_a = _make_jwt_cookie(user_id=owner_a, business_id=business_a, role="owner")
+    try:
+        transport = httpx.ASGITransport(app=app)
+        async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+            response = await client.patch(
+                f"{CATALOG_PRODUCTS_URL}/{p_a_id}",
+                cookies=cookies_a,
+                json={
+                    "business_id": business_b,
+                    "id": str(uuid.uuid4()),
+                    "sale_price": "1999.00",
+                },
+            )
+
+        assert response.status_code == 200
+        body = response.json()
+        assert body["id"] == p_a_id
+        assert body["sale_price"] == "1999.00"
+
+        async with db_session.begin():
+            row = (
+                (
+                    await db_session.execute(
+                        text("SELECT business_id, sale_price FROM products WHERE id = :id"),
+                        {"id": p_a_id},
+                    )
+                )
+                .mappings()
+                .one()
+            )
+            assert str(row["business_id"]) == business_a
+            assert row["sale_price"] == Decimal("1999.00")
+    finally:
+        await _cleanup_businesses(db_session, [business_a, business_b])
+
+
+@pytest.mark.asyncio
+async def test_openapi_documents_patch_catalog_route_and_product_update_schema() -> None:
+    """Scenario: PATCH catalog route and ProductUpdate schema documented
+    in live and static OpenAPI contracts.
+    """
+    transport = httpx.ASGITransport(app=app)
+    async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+        response = await client.get("/openapi.json")
+
+    assert response.status_code == 200
+    spec = response.json()
+    patch_path = f"{CATALOG_PRODUCTS_URL}/{{product_id}}"
+    assert patch_path in spec["paths"]
+    patch_op = spec["paths"][patch_path]["patch"]
+    assert "catalog" in patch_op["tags"]
+
+    param_names = {p["name"]: p for p in patch_op.get("parameters", [])}
+    assert "product_id" in param_names
+    assert param_names["product_id"]["in"] == "path"
+    assert param_names["product_id"]["schema"].get("format") == "uuid"
+
+    patch_responses = set(patch_op["responses"].keys())
+    assert {"200", "401", "403", "404", "409", "422"}.issubset(patch_responses)
+
+    schemas = spec["components"]["schemas"]
+    assert "ProductUpdate" in schemas
+    update_props = schemas["ProductUpdate"]["properties"]
+    assert {"code", "name", "sale_price", "cost_price", "stock"}.issubset(set(update_props.keys()))
