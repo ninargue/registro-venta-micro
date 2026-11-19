@@ -1,8 +1,10 @@
 // Configuracion de lint-staged (hook pre-commit). lint-staged pasa las rutas
 // absolutas de los archivos en staging como argumentos finales de cada comando.
 module.exports = {
-  // Backend: ruff corre dentro de backend/ (su propio proyecto/venv via uv).
+  // Backend: exporta openapi si cambia el backend y corre ruff con uv.
   "backend/**/*.py": [
+    "uv run --directory backend python -m app.scripts.export_openapi",
+    "git add docs/openapi.json",
     "uv run --directory backend ruff check --fix",
     "uv run --directory backend ruff format",
   ],
