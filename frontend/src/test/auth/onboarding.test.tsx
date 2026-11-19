@@ -289,6 +289,63 @@ describe("Onboarding modal (Design-Blind)", () => {
     });
     expect(refreshCalls).toBe(1);
     expect(localStorage.getItem("rvm.auth.context")).toBeNull();
-    expect(await screen.findByRole("alert")).toBeInTheDocument();
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "Tu sesión expiró. Por favor, inicia sesión nuevamente.",
+    );
+  });
+
+  it("muestra feedback accesible en role=alert y permanece en el modal ante HTTP 422", async () => {
+    const user = userEvent.setup();
+    mockAuthenticatedOnboardingRequired();
+    server.use(
+      http.post("/api/v1/auth/onboarding", () => {
+        return HttpResponse.json(
+          {
+            code: "VALIDATION_ERROR",
+            message: "País de operación no soportado.",
+            details: null,
+          },
+          { status: 422 },
+        );
+      }),
+    );
+
+    const { router } = renderApp(["/"]);
+    const dialog = await screen.findByRole("dialog");
+    const modal = within(dialog);
+
+    await user.type(modal.getByLabelText(/Nombre del negocio/i), "Kiosco Central");
+    await user.selectOptions(modal.getByRole("combobox", { name: /País de operación/i }), "AR");
+    await user.click(modal.getByRole("button", { name: "Crear Comercio y Entrar" }));
+
+    const alert = await modal.findByRole("alert");
+    expect(alert).toHaveTextContent("País de operación no soportado.");
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+    expect(router.state.location.pathname).toBe("/");
+  });
+
+  it('permite activar "Cerrar sesión" dentro del flujo de onboarding y redirige a /login', async () => {
+    const user = userEvent.setup();
+    let logoutCalls = 0;
+
+    mockAuthenticatedOnboardingRequired();
+    server.use(
+      http.post("/api/v1/auth/logout", () => {
+        logoutCalls += 1;
+        return new HttpResponse(null, { status: 204 });
+      }),
+    );
+
+    const { router } = renderApp(["/"]);
+    const dialog = await screen.findByRole("dialog");
+    const modal = within(dialog);
+
+    await user.click(modal.getByRole("button", { name: "Cerrar sesión" }));
+
+    await waitFor(() => {
+      expect(router.state.location.pathname).toBe("/login");
+    });
+    expect(logoutCalls).toBe(1);
+    expect(localStorage.getItem("rvm.auth.context")).toBeNull();
   });
 });

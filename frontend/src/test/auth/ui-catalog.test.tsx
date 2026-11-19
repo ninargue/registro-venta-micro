@@ -123,7 +123,7 @@ describe("UI Spec State Catalog & Accessibility (auth-onboarding-ui-spec.json)",
 
       const alert = await screen.findByRole("alert");
       expect(alert).toBeVisible();
-      expect(alert.textContent.trim().length).toBeGreaterThan(0);
+      expect(alert).toHaveTextContent("Correo electrónico o contraseña incorrectos.");
     });
   });
 

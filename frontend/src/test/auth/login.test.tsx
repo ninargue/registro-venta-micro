@@ -232,19 +232,39 @@ describe("Login screen (Design-Blind)", () => {
     await user.click(screen.getByRole("button", { name: "Iniciar Sesión" }));
 
     const alert = await screen.findByRole("alert");
-    expect(alert).toBeInTheDocument();
+    expect(alert).toHaveTextContent("Correo electrónico o contraseña incorrectos.");
     expect(router.state.location.pathname).toBe("/login");
     expect(localStorage.getItem("rvm.auth.context")).toBeNull();
   });
 
   it.each([
-    { status: 422, code: "VALIDATION_ERROR", message: "Datos inválidos" },
-    { status: 429, code: "RATE_LIMIT_EXCEEDED", message: "Demasiados intentos" },
-    { status: 502, code: "AUTH_UPSTREAM_UNAVAILABLE", message: "Servicio no disponible" },
-    { status: 503, code: "AUTH_UPSTREAM_TIMEOUT", message: "Tiempo de espera agotado" },
+    {
+      status: 422,
+      code: "VALIDATION_ERROR",
+      message: "Datos inválidos",
+      expectedAlert: "Datos inválidos",
+    },
+    {
+      status: 429,
+      code: "RATE_LIMIT_EXCEEDED",
+      message: "Demasiados intentos",
+      expectedAlert: "Demasiados intentos fallidos. Espera un momento antes de volver a intentar.",
+    },
+    {
+      status: 502,
+      code: "AUTH_UPSTREAM_UNAVAILABLE",
+      message: "Servicio no disponible",
+      expectedAlert: "El servicio de autenticación no está disponible temporalmente.",
+    },
+    {
+      status: 503,
+      code: "AUTH_UPSTREAM_TIMEOUT",
+      message: "Tiempo de espera agotado",
+      expectedAlert: "El servicio tardó demasiado en responder. Intenta nuevamente.",
+    },
   ])(
     "muestra alerta accesible, sale de loading y conserva email ante HTTP $status",
-    async ({ status, code, message }) => {
+    async ({ status, code, message, expectedAlert }) => {
       const user = userEvent.setup();
       server.use(
         http.post("/api/v1/auth/login", () => {
@@ -259,7 +279,7 @@ describe("Login screen (Design-Blind)", () => {
       await user.click(screen.getByRole("button", { name: "Iniciar Sesión" }));
 
       const alert = await screen.findByRole("alert");
-      expect(alert).toBeInTheDocument();
+      expect(alert).toHaveTextContent(expectedAlert);
       expect(emailInput).toHaveValue("dueno@negocio.com");
       expect(screen.getByRole("button", { name: "Iniciar Sesión" })).toBeEnabled();
     },
@@ -279,7 +299,10 @@ describe("Login screen (Design-Blind)", () => {
     await user.type(screen.getByLabelText(/Contraseña/i), "ClaveSegura123");
     await user.click(screen.getByRole("button", { name: "Iniciar Sesión" }));
 
-    expect(await screen.findByRole("alert")).toBeInTheDocument();
+    const alert = await screen.findByRole("alert");
+    expect(alert).toHaveTextContent(
+      "No se pudo conectar con el servidor. Verifica tu conexión e intenta nuevamente.",
+    );
     expect(emailInput).toHaveValue("dueno@negocio.com");
     expect(screen.getByRole("button", { name: "Iniciar Sesión" })).toBeEnabled();
   });

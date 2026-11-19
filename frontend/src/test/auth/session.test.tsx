@@ -218,4 +218,26 @@ describe("Session management, HttpOnly cookies, route guards, and logout", () =>
     expect(logoutCalls).toBe(1);
     expect(localStorage.getItem("rvm.auth.context")).toBeNull();
   });
+
+  it("preserva contexto público cacheado y no redirige a /login ante error de red en GET /me", async () => {
+    const cachedContext = {
+      user: DEFAULT_TEST_USER,
+      requires_onboarding: false,
+      business: DEFAULT_TEST_BUSINESS,
+    };
+    localStorage.setItem("rvm.auth.context", JSON.stringify(cachedContext));
+
+    server.use(
+      http.get("/api/v1/auth/me", () => {
+        return HttpResponse.error();
+      }),
+    );
+
+    const { router } = renderApp(["/"]);
+
+    expect(await screen.findByRole("button", { name: "Cerrar sesión" })).toBeInTheDocument();
+    expect(router.state.location.pathname).toBe("/");
+    expect(screen.getByText(DEFAULT_TEST_BUSINESS.name)).toBeInTheDocument();
+    expect(JSON.parse(localStorage.getItem("rvm.auth.context") ?? "{}")).toEqual(cachedContext);
+  });
 });
