@@ -5,10 +5,6 @@ name: CI Backend
 
 on:
   pull_request:
-    branches:
-      - develop
-      - master
-      - 'release/**'
     paths:
       - 'backend/**'
       - 'supabase/**'

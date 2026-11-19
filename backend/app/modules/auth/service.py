@@ -57,8 +57,7 @@ def _is_unique_violation(exc: IntegrityError) -> bool:
         cause, "constraint_name", None
     )
     return sqlstate == "23505" and (
-        constraint_name == "uq_business_users_user_id"
-        or "uq_business_users_user_id" in str(orig)
+        constraint_name == "uq_business_users_user_id" or "uq_business_users_user_id" in str(orig)
     )
 
 
