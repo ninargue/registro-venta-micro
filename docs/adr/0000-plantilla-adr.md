@@ -11,6 +11,7 @@ CÓMO USAR ESTA PLANTILLA (borrar este comentario al crear el ADR)
 
 1. Copiar como `NNNN-titulo-en-kebab-case.md` con el siguiente número libre.
 2. Registrarlo en la tabla "Registro de ADR" de ../README.md.
+3. Redactar en nivel arquitectónico y de diseño: evitar detalles técnicos de implementación como nombres de variables, columnas, restricciones, índices, funciones, métodos, clases o rutas de archivos de código.
 
 Estados:
 - Propuesto: en discusión. Se edita libremente.

@@ -26,3 +26,8 @@ rules:
 db:
   engine: postgres
   mcp_optional: false
+  environments:
+    dev_url_env: DATABASE_URL
+    test_url_env: DB_TEST_URL
+    dev_ro_url_env: DB_DEV_RO_URL
+    healthcheck: "SELECT 1"

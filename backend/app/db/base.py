@@ -7,3 +7,4 @@ class Base(DeclarativeBase):
 
 # Importar modelos para registro en metadata
 from app.modules.auth.models import Business, BusinessUser  # noqa: E402, F401
+from app.modules.catalog.models import Product  # noqa: E402, F401

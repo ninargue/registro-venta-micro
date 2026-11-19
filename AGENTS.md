@@ -52,14 +52,14 @@ uv run pytest tests/path/to/test_file.py::test_name
 
 - **Frontend:** React 19 + Vite + TypeScript 6 + TanStack Query + React Router 8. PWA con Service Worker (Workbox) e IndexedDB (Dexie) para catálogo, caja abierta y **outbox** de ventas pendientes.
 - **Backend:** FastAPI + SQLAlchemy 2 async + asyncpg. Capas `Router → Service → Repository`. Módulos de dominio: `auth`, `tenancy`, `catalog`, `sales`, `inventory`, `cash`, `reports`, `assistant`.
-- **Base de datos:** PostgreSQL 17 vía Supabase (`sa-east-1`). Multitenant con `tenant_id NOT NULL` en toda tabla operativa y RLS forzada. Las migraciones son la única vía para cambiar el esquema (Alembic, nunca el panel de Supabase).
+- **Base de datos:** PostgreSQL 17 vía Supabase (`sa-east-1`). Multitenant con `business_id NOT NULL` en toda tabla operativa (con `businesses` como entidad raíz del tenant) y RLS forzada. Las migraciones son la única vía para cambiar el esquema (Alembic, nunca el panel de Supabase).
 - **Auth:** Supabase Auth para credenciales; el backend emite su propia sesión (access JWT 15 min + refresh rotativo en cookies `HttpOnly; Secure; SameSite=Strict`). El navegador nunca habla con Supabase.
 - **Despliegue:** Vercel sirve la PWA (CDN) y la API (función Python en `gru1`) bajo el mismo dominio. CI obligatorio antes de cualquier deploy; producción requiere aprobación manual.
 
 ### Invariantes de seguridad críticos
 
 - El tenant siempre sale del token JWT, nunca del body ni de la URL.
-- El backend fija `SET LOCAL app.tenant_id` en cada transacción; las políticas RLS lo usan.
+- El backend fija `SET LOCAL app.current_business_id` (y `SET LOCAL app.current_user_id` durante onboarding/login) en cada transacción; las políticas RLS lo usan.
 - Recursos de otro tenant responden `404` (no revelar que existen).
 - El asistente de IA nunca genera SQL: solo invoca reportes predefinidos que corren bajo RLS.
 
