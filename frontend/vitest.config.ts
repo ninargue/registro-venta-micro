@@ -9,7 +9,6 @@ export default mergeConfig(
       // worker_threads en lugar de forks: evita el timeout de arranque del
       // worker de forks bajo contencion de CPU, sin desactivar tests.
       pool: "threads",
-      isolate: false,
       maxWorkers: 1,
       setupFiles: ["./src/test/setup.ts"],
       include: ["src/**/*.test.{ts,tsx}"],

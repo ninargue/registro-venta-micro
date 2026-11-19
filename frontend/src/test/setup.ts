@@ -4,7 +4,7 @@ import { server } from "./mocks/server";
 
 // Inicia el servidor mock de MSW antes de toda la suite
 beforeAll(() => {
-  server.listen();
+  server.listen({ onUnhandledFrame: "error" });
 });
 
 // Restaura los handlers a su configuración inicial entre tests

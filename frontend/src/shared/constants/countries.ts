@@ -3,13 +3,7 @@
  * Debe coincidir estrictamente con COUNTRY_TIMEZONES en backend/app/modules/auth/schemas.py.
  */
 
-export interface CountryOption {
-  code: string;
-  name: string;
-  defaultTimezone: string;
-}
-
-export const SUPPORTED_COUNTRIES: readonly CountryOption[] = [
+export const SUPPORTED_COUNTRIES = [
   { code: "AR", name: "Argentina", defaultTimezone: "America/Argentina/Buenos_Aires" },
   { code: "BO", name: "Bolivia", defaultTimezone: "America/La_Paz" },
   { code: "BR", name: "Brasil", defaultTimezone: "America/Sao_Paulo" },
@@ -24,6 +18,11 @@ export const SUPPORTED_COUNTRIES: readonly CountryOption[] = [
   { code: "UY", name: "Uruguay", defaultTimezone: "America/Montevideo" },
 ] as const;
 
-export const COUNTRY_TIMEZONES: Record<string, string> = Object.fromEntries(
-  SUPPORTED_COUNTRIES.map((c) => [c.code, c.defaultTimezone]),
-);
+export type CountryOption = (typeof SUPPORTED_COUNTRIES)[number];
+export type SupportedCountryCode = CountryOption["code"];
+export type SupportedTimezone = CountryOption["defaultTimezone"];
+
+export const COUNTRY_TIMEZONES: Record<SupportedCountryCode, SupportedTimezone> =
+  Object.fromEntries(
+    SUPPORTED_COUNTRIES.map((c) => [c.code, c.defaultTimezone]),
+  ) as Record<SupportedCountryCode, SupportedTimezone>;

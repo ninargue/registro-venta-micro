@@ -64,6 +64,11 @@ jobs:
         run: uv run ruff check .
       - name: ruff format --check
         run: uv run ruff format --check .
+      - name: Verificar frescura de docs/openapi.json
+        working-directory: ${{ github.workspace }}
+        run: |
+          uv run --directory backend python -m app.scripts.export_openapi
+          git diff --exit-code docs/openapi.json
 
   typecheck:
     name: Typecheck (mypy)
