@@ -1,51 +1,18 @@
 import uuid
 from datetime import datetime
-from decimal import Decimal, InvalidOperation
+from decimal import Decimal
 from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
-from app.core.schemas import reject_nul_byte
+from app.core.schemas import (
+    MAX_NUMERIC_12_2,
+    parse_strict_decimal,
+    quantize_decimal,
+    reject_nul_byte,
+)
 
-MAX_NUMERIC_12_2 = Decimal("9999999999.99")
-DECIMAL_QUANTIZER = Decimal("0.01")
-
-
-def _parse_strict_decimal(value: Any) -> Decimal:
-    """Valida Decimal estricto sin float/bool/NaN/Infinity ni redondeo silencioso (>2 decimales)."""
-    if value is None or isinstance(value, bool | float):
-        raise ValueError("Value must be an exact decimal string, integer, or Decimal")
-
-    if isinstance(value, Decimal):
-        parsed = value
-    elif isinstance(value, int):
-        parsed = Decimal(value)
-    elif isinstance(value, str):
-        reject_nul_byte(value)
-        cleaned = value.strip()
-        if not cleaned:
-            raise ValueError("Decimal string cannot be empty")
-        try:
-            parsed = Decimal(cleaned)
-        except InvalidOperation as exc:
-            raise ValueError("Invalid decimal format") from exc
-    else:
-        raise ValueError("Value must be an exact decimal string, integer, or Decimal")
-
-    if not parsed.is_finite():
-        raise ValueError("Decimal value must be finite")
-
-    exponent = parsed.as_tuple().exponent
-    if isinstance(exponent, int) and exponent < -2:
-        raise ValueError("At most 2 decimal places are allowed")
-
-    if abs(parsed) > MAX_NUMERIC_12_2:
-        raise ValueError("Decimal value exceeds numeric(12,2) range")
-
-    try:
-        return parsed.quantize(DECIMAL_QUANTIZER)
-    except InvalidOperation as exc:
-        raise ValueError("Decimal value exceeds supported precision") from exc
+_parse_strict_decimal = parse_strict_decimal
 
 
 class ProductCreate(BaseModel):
@@ -177,7 +144,7 @@ class ProductResponse(BaseModel):
     def quantize_decimals(cls, value: Decimal | None) -> Decimal | None:
         if value is None:
             return None
-        return value.quantize(DECIMAL_QUANTIZER)
+        return quantize_decimal(value)
 
 
 class ProductListResponse(BaseModel):

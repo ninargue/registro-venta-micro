@@ -1,3 +1,6 @@
+import uuid
+from decimal import Decimal
+
 from sqlalchemy.exc import IntegrityError
 
 from app.core.security import CurrentUser
@@ -103,3 +106,24 @@ class CatalogService:
             limit=query.limit,
             offset=query.offset,
         )
+
+    async def lock_products_for_sale(
+        self,
+        product_ids: list[uuid.UUID],
+    ) -> dict[uuid.UUID, Product]:
+        """Bloquea y devuelve los productos solicitados en orden determinista para una venta."""
+        return await self._repository.lock_products_for_sale(product_ids)
+
+    async def deduct_stock_batch(
+        self,
+        deductions: dict[uuid.UUID, Decimal],
+    ) -> None:
+        """Descuenta stock por lote en orden determinista dentro de la transacción activa."""
+        await self._repository.deduct_stock_batch(deductions)
+
+    async def get_product_names_by_ids(
+        self,
+        product_ids: list[uuid.UUID],
+    ) -> dict[uuid.UUID, str]:
+        """Devuelve un mapa product_id -> name para armar comprobantes."""
+        return await self._repository.get_product_names_by_ids(product_ids)

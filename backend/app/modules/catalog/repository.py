@@ -3,7 +3,7 @@ from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from decimal import Decimal
 
-from sqlalchemy import ColumnElement, func, insert, or_, select
+from sqlalchemy import ColumnElement, func, insert, or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.base import Base  # noqa: F401 - asegura inicialización de Base antes de models
@@ -87,3 +87,44 @@ class CatalogRepository:
         )
         items = list((await self._session.execute(items_stmt)).scalars().all())
         return items, total
+
+    async def lock_products_for_sale(
+        self,
+        product_ids: list[uuid.UUID],
+    ) -> dict[uuid.UUID, Product]:
+        """Bloquea productos en orden determinista (ORDER BY id ASC FOR UPDATE) bajo RLS."""
+        if not product_ids:
+            return {}
+        ordered_ids = sorted(set(product_ids))
+        stmt = (
+            select(Product)
+            .where(Product.id.in_(ordered_ids))
+            .order_by(Product.id.asc())
+            .with_for_update()
+        )
+        rows = (await self._session.execute(stmt)).scalars().all()
+        return {product.id: product for product in rows}
+
+    async def deduct_stock_batch(
+        self,
+        deductions: dict[uuid.UUID, Decimal],
+    ) -> None:
+        """Descuenta stock atómicamente en orden ascendente de id (permite saldo negativo)."""
+        if not deductions:
+            return
+        for product_id in sorted(deductions):
+            qty = deductions[product_id]
+            stmt = update(Product).where(Product.id == product_id).values(stock=Product.stock - qty)
+            await self._session.execute(stmt)
+
+    async def get_product_names_by_ids(
+        self,
+        product_ids: list[uuid.UUID],
+    ) -> dict[uuid.UUID, str]:
+        """Obtiene nombres de productos por sus IDs bajo el contexto RLS actual."""
+        if not product_ids:
+            return {}
+        unique_ids = sorted(set(product_ids))
+        stmt = select(Product.id, Product.name).where(Product.id.in_(unique_ids))
+        rows = (await self._session.execute(stmt)).all()
+        return {row.id: row.name for row in rows}
