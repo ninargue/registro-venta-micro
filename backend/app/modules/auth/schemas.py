@@ -1,10 +1,13 @@
 import re
 import uuid
 from datetime import datetime
-from typing import Any, Literal, Self
+from typing import Literal, Self
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from pydantic import BaseModel, Field, field_validator, model_validator
+
+from app.core.schemas import ErrorResponse as ErrorResponse
+from app.core.schemas import reject_nul_byte as _reject_nul_byte
 
 EMAIL_REGEX = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 
@@ -22,12 +25,6 @@ COUNTRY_TIMEZONES: dict[str, str] = {
     "ES": "Europe/Madrid",
     "US": "America/New_York",
 }
-
-
-def _reject_nul_byte(value: str) -> str:
-    if "\x00" in value:
-        raise ValueError("Input must not contain NUL bytes")
-    return value
 
 
 def _validate_iana_timezone(value: str) -> str:
@@ -141,11 +138,3 @@ class BusinessResponse(BaseModel):
     timezone: str
     role: Literal["owner", "cashier"] = "owner"
     created_at: datetime
-
-
-class ErrorResponse(BaseModel):
-    """Estructura estándar de error en endpoints de autenticación."""
-
-    code: str
-    message: str
-    details: Any | None = None

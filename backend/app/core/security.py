@@ -194,3 +194,19 @@ def get_current_tenant(
             },
         )
     return current_user
+
+
+def require_owner(
+    current_user: CurrentUser = Depends(get_current_tenant),
+) -> CurrentUser:
+    """Exige que el usuario autenticado tenga rol owner sobre el comercio activo."""
+    if current_user.role != "owner":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail={
+                "code": "FORBIDDEN",
+                "message": "Owner role required",
+                "details": None,
+            },
+        )
+    return current_user

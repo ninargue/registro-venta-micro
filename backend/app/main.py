@@ -9,8 +9,9 @@ from fastapi.responses import JSONResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from app.core.config import get_settings, validate_runtime_settings
+from app.core.schemas import ErrorResponse
 from app.modules.auth.router import router as auth_router
-from app.modules.auth.schemas import ErrorResponse
+from app.modules.catalog.router import router as catalog_router
 from app.modules.health.router import router as health_router
 
 
@@ -67,3 +68,4 @@ async def validation_exception_handler(
 
 app.include_router(health_router, prefix="/api/v1")
 app.include_router(auth_router, prefix="/api/v1")
+app.include_router(catalog_router, prefix="/api/v1")
