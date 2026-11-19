@@ -28,11 +28,25 @@
 
 ---
 
+### TICKET-04b: Endpoint PATCH `/api/v1/catalog/products/{id}` para edición de productos
+- **Issue GitHub:** [#67](https://github.com/ninargue/registro-venta-micro/issues/67)
+- **Alcance / Capa:** Backend (`backend/app/modules/catalog`)
+- **Talla:** `S` | **Riesgo:** Bajo
+- **Dependencias:** `TICKET-04`
+- **Descripción:** Implementar el endpoint `PATCH /api/v1/catalog/products/{product_id}` en el módulo `catalog` para permitir la edición parcial de productos existentes (`code`, `name`, `sale_price`, `cost_price`, `stock`), respetando aislamiento multitenant por RLS y rol `owner`.
+- **Definición de Terminado (DoD):**
+  - [ ] Endpoint `PATCH /api/v1/catalog/products/{product_id}` implementado y documentado en `docs/api/openapi.json` (regenerado vía `export_openapi.py`).
+  - [ ] Esquema Pydantic `ProductUpdate` con validación estricta en `Decimal` (`sale_price > 0`, `cost_price >= 0`, `stock >= 0`) sin `float`.
+  - [ ] Solo rol `owner` puede editar (`403 FORBIDDEN` para `cashier`); recurso inexistente o de otro tenant responde `404`.
+  - [ ] Tests de integración validando actualización parcial, validación de montos/stock y aislamiento entre tenants.
+
+---
+
 ### TICKET-05: Vista de administración y selector de productos en frontend
 - **Issue GitHub:** [#44](https://github.com/ninargue/registro-venta-micro/issues/44)
 - **Alcance / Capa:** Frontend (`frontend/src/app`)
 - **Talla:** `M` | **Riesgo:** Bajo
-- **Dependencias:** `TICKET-04`, `TICKET-02`
+- **Dependencias:** `TICKET-04`, `TICKET-04b`, `TICKET-02`
 - **Descripción:** Crear componente de catálogo en la PWA para listar y registrar productos con buscador reactivo y visualización de stock.
 - **Definición de Terminado (DoD):**
   - [ ] Grilla táctil / lista de productos con nombre, precio y stock.
