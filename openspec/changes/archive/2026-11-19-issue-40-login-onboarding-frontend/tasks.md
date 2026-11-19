@@ -1,0 +1,29 @@
+# Tasks: issue-40-login-onboarding-frontend
+
+## 1. Tests en Rojo (Frontend-TDD Design-Blind + MSW + Catálogo de Estados + E2E)
+
+- [x] 1.1 Configurar handlers MSW por defecto en `frontend/src/test/mocks/handlers.ts` para `GET /api/v1/auth/me` (`401`), `POST /api/v1/auth/refresh` (`401`), `POST /api/v1/auth/login`, `POST /api/v1/auth/onboarding` y `POST /api/v1/auth/logout` siguiendo `docs/api/openapi.json` y ADR-0006, y verificar limpieza de `localStorage`/tema + `onUnhandledRequest: "error"` en `frontend/src/test/setup.ts`.
+- [x] 1.2 Crear suite Design-Blind de login en `frontend/src/test/auth/login.test.tsx` cubriendo renderizado semántico de `/login`, validación cliente (email vacío/inválido, contraseña vacía), estado `loading` anti-doble envío, toggle de tema claro/oscuro, y respuestas `200` (`requires_onboarding: false` -> `/`, `requires_onboarding: true` -> modal), `401`, `422`, `429`, `502`, `503` y error de red.
+- [x] 1.3 Crear suite Design-Blind de onboarding en `frontend/src/test/auth/onboarding.test.tsx` cubriendo `role="dialog"` (`aria-modal="true"`), catálogo de países, validación cliente (`name` en blanco o >100 caracteres, país faltante), bloqueo de cierre por `Escape`, envío `201` -> `/` con metadatos actualizados, `409` con reconciliación vía `/me` y `401` con intento de `/refresh`.
+- [x] 1.4 Crear suite de sesión y guardas de ruta en `frontend/src/test/auth/session.test.tsx` verificando `credentials: "include"`, ausencia absoluta de JWT/tokens/contraseñas en `localStorage` y `sessionStorage`, rehidratación vía `GET /api/v1/auth/me`, refresh silencioso ante `401`, redirección automática desde `/login` cuando ya hay negocio activo, preservación de `h1` `"registro-venta-micro"` en `/` y flujo completo de `"Cerrar sesión"`.
+- [x] 1.5 Crear catálogo ejecutable de estados y accesibilidad en `frontend/src/test/auth/ui-catalog.test.tsx` cubriendo todos los estados de `docs/ui/auth-onboarding-ui-spec.json` (`login-screen`: `empty`, `ready`, `loading`, `error`; `onboarding-modal`: `ready`, `loading`, `error`) mediante roles/labels ARIA y navegación por teclado.
+- [x] 1.6 Crear prueba E2E única del camino crítico en `frontend/tests/e2e/auth-onboarding.spec.ts` (`/` -> `/login` -> onboarding `"Kiosco Central"`/`"AR"` -> `/` -> recarga -> `"Cerrar sesión"` -> `/login`) usando `page.route` para simular cookies y API; ejecutar `cd frontend && npm test` y confirmar fallo inicial en **ROJO**.
+
+## 2. UI Pura y Sistema de Diseño
+
+- [x] 2.1 Revisar y completar tokens semánticos en `frontend/src/index.css` (`tokens_path`: `[origen: catalogo]`, agregar solo si hace falta `--radius-control` o variante de error oscuro bajo `@theme` manteniendo 0 colores literales fuera de `index.css`).
+- [x] 2.2 Implementar primitivas UI accesibles y táctiles (`>= 48px` con `.touch-target`) en `frontend/src/shared/ui/`: `Button.tsx` `[origen: nueva-declarada]`, `TextField.tsx` `[origen: nueva-declarada]`, `SelectField.tsx` `[origen: nueva-declarada]` (conectado a `SUPPORTED_COUNTRIES` `[origen: catalogo]`), `ErrorAlert.tsx` `[origen: nueva-declarada]` y `ThemeToggleButton.tsx` `[origen: nueva-declarada]`.
+- [x] 2.3 Implementar componentes visuales puros de dominio en `frontend/src/features/auth/components/`: `LoginForm.tsx` `[origen: nueva-declarada]` y `OnboardingModal.tsx` `[origen: nueva-declarada]` (`role="dialog"`, `aria-modal="true"`, manejo de foco y bloqueo de escape/cierre sin comercio).
+- [x] 2.4 Implementar vistas puras `LoginPage.tsx` (`frontend/src/features/auth/pages/LoginPage.tsx`, `[origen: nueva-declarada]`) y `CounterShellPage.tsx` (`frontend/src/app/CounterShellPage.tsx`, `[origen: nueva-declarada]` con `<h1>registro-venta-micro</h1>`, contexto del negocio y botón `"Cerrar sesión"`), ejecutando Gate 3 Visual (`lint` + `typecheck` + revisión de colores literales).
+
+## 3. Integración Lógica, Sesión HttpOnly y Rutas Protegidas
+
+- [x] 3.1 Implementar tipos DTO trazados 1:1 a `docs/api/openapi.json` en `frontend/src/features/auth/types.ts`, validadores puros en `frontend/src/features/auth/validation.ts` y persistencia acotada de metadatos públicos + tema en `frontend/src/features/auth/storage.ts` (sin almacenar JWT ni credenciales).
+- [x] 3.2 Implementar cliente HTTP `frontend/src/lib/api-client.ts` (`credentials: "include"`, parseo `ErrorResponse`, deduplicación de `POST /api/v1/auth/refresh` ante `401`) y funciones de endpoint en `frontend/src/features/auth/api.ts` (`/login`, `/onboarding`, `/me`, `/refresh`, `/logout`).
+- [x] 3.3 Implementar `AuthSessionProvider` (`frontend/src/features/auth/AuthContext.tsx`) con TanStack Query (`["auth", "session"]`), máquina de estados (`bootstrapping`, `unauthenticated`, `onboarding_required`, `authenticated`) y reconciliación de `409`/`401`.
+- [x] 3.4 Actualizar `frontend/src/app/providers.tsx` (soporte `queryClient?: QueryClient` + `ThemeProvider` + `AuthSessionProvider`) y `frontend/src/app/router.tsx` (rutas `/login` y `/` con guardas `PublicOnlyRoute` y `ProtectedRoute`, preservando `h1` `"registro-venta-micro"` en bootstrapping), conectando `LoginPage`, `OnboardingModal` y `CounterShellPage`; verificar Gate 3 Integración en **VERDE** (`lint`, `typecheck`, `build`, `npm test` y `npm run test:e2e`).
+
+## 4. Optimización de Bundle y Verificación Final
+
+- [x] 4.1 Aplicar *code-splitting* con `React.lazy` y `Suspense` para `LoginPage` y `OnboardingModal` (manteniendo carga inmediata de `h1` en `/` durante fallback) y confirmar que el bundle inicial en `frontend/dist/assets` cumple el presupuesto (`<= 350 KB`) sin configurar Service Worker ni Workbox (diferidos).
+- [x] 4.2 Ejecutar Gate 4 (`cd frontend && npm run build && npm test && npm run test:e2e` + auditoría de bundle) y verificar estado limpio sin tokens en `localStorage` ni colores literales fuera de `frontend/src/index.css`.

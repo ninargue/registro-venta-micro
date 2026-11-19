@@ -1,13 +1,15 @@
 import uuid
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Mapping
 from contextlib import asynccontextmanager
 from decimal import Decimal
+from typing import Any
 
 from sqlalchemy import ColumnElement, Numeric, case, func, insert, literal, or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.base import Base  # noqa: F401 - asegura inicialización de Base antes de models
 from app.modules.catalog.models import Product
+from app.modules.catalog.schemas import UPDATABLE_PRODUCT_FIELDS
 
 
 class CatalogRepository:
@@ -52,6 +54,30 @@ class CatalogRepository:
         async with self._transaction():
             result = await self._session.execute(stmt)
             return result.scalar_one()
+
+    async def update_product(
+        self,
+        *,
+        product_id: uuid.UUID,
+        business_id: uuid.UUID,
+        updates: Mapping[str, Any],
+    ) -> Product | None:
+        """Actualiza parcialmente un producto del tenant bajo savepoint y retorna la fila o None."""
+        if not updates:
+            raise ValueError("At least one editable field must be provided")
+        invalid_fields = set(updates.keys()) - UPDATABLE_PRODUCT_FIELDS
+        if invalid_fields:
+            raise ValueError(f"Non-updatable fields are not allowed: {sorted(invalid_fields)}")
+
+        stmt = (
+            update(Product)
+            .where(Product.id == product_id, Product.business_id == business_id)
+            .values(**dict(updates))
+            .returning(Product)
+        )
+        async with self._transaction():
+            result = await self._session.execute(stmt)
+            return result.scalar_one_or_none()
 
     async def list_products(
         self,
