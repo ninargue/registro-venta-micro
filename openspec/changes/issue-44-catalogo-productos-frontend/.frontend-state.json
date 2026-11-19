@@ -6,7 +6,8 @@
   "revision_count": {
     "architect": 0,
     "qa": 0,
-    "maquetador": 0
+    "maquetador": 0,
+    "integrador": 0
   },
   "diff_history": [
     {
@@ -62,6 +63,40 @@
       "status": "passed",
       "snapshot_hash": "2b8e3c635483915194164ac1fe0f195b065cec9c38a49c46ab65f871a36b54cf",
       "ts": "2026-11-19T23:08:01.049Z"
+    },
+    {
+      "node": "auditor",
+      "status": "tests-snapshot",
+      "tests_hash": "acea217c7087c87bb4525d941405d94960946d73ffdadc83bea88b816f11cdf7",
+      "ts": "2026-11-19T23:20:00.000Z"
+    },
+    {
+      "node": "integrador",
+      "attempt": 1,
+      "status": "failed",
+      "snapshot_hash": "2b8e3c635483915194164ac1fe0f195b065cec9c38a49c46ab65f871a36b54cf",
+      "ts": "2026-11-19T23:14:26.688Z"
+    },
+    {
+      "node": "integrador",
+      "attempt": 2,
+      "status": "failed",
+      "snapshot_hash": "2b8e3c635483915194164ac1fe0f195b065cec9c38a49c46ab65f871a36b54cf",
+      "ts": "2026-11-19T23:14:44.156Z"
+    },
+    {
+      "node": "integrador",
+      "attempt": 3,
+      "status": "failed",
+      "snapshot_hash": "2b8e3c635483915194164ac1fe0f195b065cec9c38a49c46ab65f871a36b54cf",
+      "ts": "2026-11-19T23:15:04.320Z"
+    },
+    {
+      "node": "integrador",
+      "attempt": 0,
+      "status": "passed",
+      "snapshot_hash": "2b8e3c635483915194164ac1fe0f195b065cec9c38a49c46ab65f871a36b54cf",
+      "ts": "2026-11-19T23:16:25.915Z"
     }
   ]
 }
