@@ -6,9 +6,9 @@
   "errors": [],
   "backend_snapshots": {
     "tests": {
-      "captured_at": "2026-11-19T14:19:39.686Z",
+      "captured_at": "2026-11-19T15:21:25.108Z",
       "file_count": 11,
-      "digest": "0760f4d9a997bd3f14816677ddcc6f13bc7087dac671d5cbdf6a6ab6a148cab2",
+      "digest": "214b4553929a5b16c754ff8dbc2e48d72e9e74dd8476e10248f5a7853331c768",
       "files": {
         "backend/tests/conftest.py": "840e646a51ccf0c1e2faaac0b3368a784570bae9190616e6003720a66095fcfd",
         "backend/tests/integration/test_auth_onboarding.py": "dd03f1a7e34b86633696792f5322b940cc73d575d75f31d07cb96007cba847bb",
@@ -16,7 +16,7 @@
         "backend/tests/integration/test_db_businesses.py": "5269539b93a33bfaa991ff5d2f01d522c97dd3c609beca2a98462f6e0a9b250d",
         "backend/tests/integration/test_db_products.py": "f461af385a79188db4e49fd3dd951b5892cc588b644c04bd10a8ad182530dbb2",
         "backend/tests/integration/test_db_sales.py": "33997772cbabd41b4a74541f37f8b3cad646ccb84aec97695b21e91e7d008cb8",
-        "backend/tests/integration/test_sales_api.py": "1f1c9d394b56e7375c6fdcd42dd9a351020aedbf7addc3c138c10b98c3249127",
+        "backend/tests/integration/test_sales_api.py": "08d4bd85753dbd0bdc1327be4d07e4373e4387e7c2592de10241f87a9fcace61",
         "backend/tests/unit/test_auth_schemas.py": "f1410ff384f81fd0929981dad351fe1bf84f044790aefd8d655882331fac5bf5",
         "backend/tests/unit/test_catalog_schemas.py": "1b7db7b51cb2ef7452b6ed6448d5e66c0ca42a0c8c6a730ff2128b4cc234e2da",
         "backend/tests/unit/test_export_openapi.py": "6924f885dea6ae215b97dfe63a78803da7981fcab47a8888e9b14abc8fa67b59",

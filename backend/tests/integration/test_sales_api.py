@@ -327,8 +327,10 @@ async def test_create_sale_combined_payments_exact_decimal_sum(
     async with db_session.begin():
         await _seed_business(db_session, business_id)
         await _seed_business_user(db_session, business_id, user_id, role="owner")
+        id_low, id_high = sorted([str(uuid.uuid4()), str(uuid.uuid4())])
         p1 = await _seed_product(
             db_session,
+            product_id=id_high,
             business_id=business_id,
             name="Caramelo A",
             sale_price=Decimal("0.10"),
@@ -337,6 +339,7 @@ async def test_create_sale_combined_payments_exact_decimal_sum(
         )
         p2 = await _seed_product(
             db_session,
+            product_id=id_low,
             business_id=business_id,
             name="Caramelo B",
             sale_price=Decimal("0.20"),
@@ -348,32 +351,45 @@ async def test_create_sale_combined_payments_exact_decimal_sum(
     cookies = _make_jwt_cookie(user_id=user_id, business_id=business_id, role="owner")
     try:
         transport = httpx.ASGITransport(app=app)
-        async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
-            response = await client.post(
-                SALES_URL,
-                cookies=cookies,
-                json={
-                    "client_id": client_id,
-                    "items": [
-                        {"product_id": p1, "quantity": "1.00"},
-                        {"product_id": p2, "quantity": "1.00"},
-                    ],
-                    "payments": [
-                        {"payment_method": "cash", "amount": "0.10"},
-                        {"payment_method": "card", "amount": "0.10"},
-                        {"payment_method": "transfer", "amount": "0.10"},
-                    ],
-                },
-            )
+        with _capture_sql_statements() as sql_log:
+            async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+                response = await client.post(
+                    SALES_URL,
+                    cookies=cookies,
+                    json={
+                        "client_id": client_id,
+                        "items": [
+                            {"product_id": p1, "quantity": "1.00"},
+                            {"product_id": p2, "quantity": "1.00"},
+                        ],
+                        "payments": [
+                            {"payment_method": "cash", "amount": "0.10"},
+                            {"payment_method": "card", "amount": "0.10"},
+                            {"payment_method": "transfer", "amount": "0.10"},
+                        ],
+                    },
+                )
 
         assert response.status_code == 201
         body = response.json()
         assert body["total_amount"] == "0.30"
-        assert [(p["payment_method"], p["amount"]) for p in body["payments"]] == [
-            ("cash", "0.10"),
-            ("card", "0.10"),
-            ("transfer", "0.10"),
+        assert sorted((p["payment_method"], p["amount"]) for p in body["payments"]) == sorted(
+            [
+                ("cash", "0.10"),
+                ("card", "0.10"),
+                ("transfer", "0.10"),
+            ]
+        )
+
+        lock_stmts = [
+            (stmt, params)
+            for stmt, params in sql_log
+            if "from products" in stmt and "for update" in stmt
         ]
+        assert lock_stmts, "Expected SELECT ... FROM products ... FOR UPDATE lock query"
+        lock_stmt, lock_params = lock_stmts[0]
+        assert "order by products.id asc" in lock_stmt
+        assert lock_params.index(id_low) < lock_params.index(id_high)
 
         async with db_session.begin():
             rows = (
@@ -415,6 +431,14 @@ async def test_fractional_quantity_rounding_and_duplicate_product_lines(
             cost_price=Decimal("60.00"),
             stock=Decimal("5.00"),
         )
+        product_even_id = await _seed_product(
+            db_session,
+            business_id=business_id,
+            name="Jamon Empate Par",
+            sale_price=Decimal("100.35"),
+            cost_price=Decimal("60.00"),
+            stock=Decimal("5.00"),
+        )
 
     cookies = _make_jwt_cookie(user_id=user_id, business_id=business_id, role="owner")
     try:
@@ -428,6 +452,16 @@ async def test_fractional_quantity_rounding_and_duplicate_product_lines(
                     "client_id": str(uuid.uuid4()),
                     "items": [{"product_id": product_id, "quantity": "1.50"}],
                     "payments": [{"payment_method": "cash", "amount": "150.50"}],
+                },
+            )
+            # 1.50 * 100.35 = 150.525 -> ROUND_HALF_UP -> 150.53 (ROUND_HALF_EVEN -> 150.52)
+            resp_even = await client.post(
+                SALES_URL,
+                cookies=cookies,
+                json={
+                    "client_id": str(uuid.uuid4()),
+                    "items": [{"product_id": product_even_id, "quantity": "1.50"}],
+                    "payments": [{"payment_method": "cash", "amount": "150.53"}],
                 },
             )
             # Duplicate product lines: 1.00 (100.33) + 2.00 (200.66) = 300.99
@@ -447,6 +481,10 @@ async def test_fractional_quantity_rounding_and_duplicate_product_lines(
         assert resp_frac.status_code == 201
         assert resp_frac.json()["total_amount"] == "150.50"
         assert resp_frac.json()["items"][0]["subtotal"] == "150.50"
+
+        assert resp_even.status_code == 201
+        assert resp_even.json()["total_amount"] == "150.53"
+        assert resp_even.json()["items"][0]["subtotal"] == "150.53"
 
         assert resp_dup.status_code == 201
         assert resp_dup.json()["total_amount"] == "300.99"
@@ -615,36 +653,83 @@ async def test_sequential_idempotent_retry_returns_200_even_after_catalog_change
             cost_price=Decimal("600.00"),
             stock=Decimal("10.00"),
         )
+        product_id_2 = await _seed_product(
+            db_session,
+            business_id=business_id,
+            name="Harina 1kg",
+            sale_price=Decimal("500.00"),
+            cost_price=Decimal("300.00"),
+            stock=Decimal("10.00"),
+        )
+        prev_product_id = await _seed_product(
+            db_session,
+            business_id=business_id,
+            name="Sal 500g",
+            sale_price=Decimal("300.00"),
+            cost_price=Decimal("150.00"),
+            stock=Decimal("10.00"),
+        )
 
     client_id = str(uuid.uuid4())
     cookies = _make_jwt_cookie(user_id=user_id, business_id=business_id, role="owner")
     payload = {
         "client_id": client_id,
-        "items": [{"product_id": product_id, "quantity": "2.00"}],
-        "payments": [{"payment_method": "cash", "amount": "2000.00"}],
+        "items": [
+            {"product_id": product_id, "quantity": "2.00"},
+            {"product_id": product_id_2, "quantity": "1.00"},
+        ],
+        "payments": [
+            {"payment_method": "cash", "amount": "1500.00"},
+            {"payment_method": "card", "amount": "1000.00"},
+        ],
     }
     try:
         transport = httpx.ASGITransport(app=app)
         async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+            prev_resp = await client.post(
+                SALES_URL,
+                cookies=cookies,
+                json={
+                    "client_id": str(uuid.uuid4()),
+                    "items": [{"product_id": prev_product_id, "quantity": "1.00"}],
+                    "payments": [{"payment_method": "transfer", "amount": "300.00"}],
+                },
+            )
+            assert prev_resp.status_code == 201
+            prev_body = prev_resp.json()
+
             first_resp = await client.post(SALES_URL, cookies=cookies, json=payload)
             assert first_resp.status_code == 201
 
-            # Edit price and deactivate product after original sale
+            # Edit price and deactivate products after original sale
             async with db_session.begin():
                 await db_session.execute(
                     text(
                         """
                         UPDATE products
                         SET sale_price = 1800.00, is_active = false
-                        WHERE id = :pid
+                        WHERE id IN (:pid1, :pid2)
                         """
                     ),
-                    {"pid": product_id},
+                    {"pid1": product_id, "pid2": product_id_2},
                 )
 
             retry_resp = await client.post(SALES_URL, cookies=cookies, json=payload)
             assert retry_resp.status_code == 200
-            assert retry_resp.json() == first_resp.json()
+            retry_body = retry_resp.json()
+            assert retry_body == first_resp.json()
+            assert len(retry_body["items"]) == 2
+            assert len(retry_body["payments"]) == 2
+            prev_item_ids = {it["id"] for it in prev_body["items"]}
+            prev_payment_ids = {pay["id"] for pay in prev_body["payments"]}
+            assert prev_item_ids.isdisjoint({it["id"] for it in retry_body["items"]})
+            assert prev_payment_ids.isdisjoint({pay["id"] for pay in retry_body["payments"]})
+            assert [it["id"] for it in retry_body["items"]] == sorted(
+                it["id"] for it in retry_body["items"]
+            )
+            assert [pay["id"] for pay in retry_body["payments"]] == sorted(
+                pay["id"] for pay in retry_body["payments"]
+            )
 
         async with db_session.begin():
             sales_count = (
@@ -839,7 +924,11 @@ async def test_reject_payment_total_mismatch(
                 },
             )
 
-        _assert_uniform_error_response(response, 422, "PAYMENT_TOTAL_MISMATCH")
+        mismatch_body = _assert_uniform_error_response(response, 422, "PAYMENT_TOTAL_MISMATCH")
+        assert mismatch_body["details"] == {
+            "expected_total": "3000.00",
+            "payments_total": payment_amount,
+        }
 
         async with db_session.begin():
             stock_val = (
@@ -895,7 +984,8 @@ async def test_reject_inactive_product_for_new_sale(
                 },
             )
 
-        _assert_uniform_error_response(response, 422, "PRODUCT_INACTIVE")
+        inactive_body = _assert_uniform_error_response(response, 422, "PRODUCT_INACTIVE")
+        assert inactive_body["details"] == {"inactive_product_ids": [product_id]}
 
         async with db_session.begin():
             stock_val = (
@@ -981,6 +1071,13 @@ async def test_reject_sale_total_rounding_to_zero_or_overflow(
     async with db_session.begin():
         await _seed_business(db_session, business_id)
         await _seed_business_user(db_session, business_id, user_id, role="owner")
+        p_valid = await _seed_product(
+            db_session,
+            business_id=business_id,
+            name="Valido",
+            sale_price=Decimal("10.00"),
+            stock=Decimal("10.00"),
+        )
         p_tiny = await _seed_product(
             db_session,
             business_id=business_id,
@@ -1009,6 +1106,18 @@ async def test_reject_sale_total_rounding_to_zero_or_overflow(
                     "payments": [{"payment_method": "cash", "amount": "0.01"}],
                 },
             )
+            resp_multi_zero = await client.post(
+                SALES_URL,
+                cookies=cookies,
+                json={
+                    "client_id": str(uuid.uuid4()),
+                    "items": [
+                        {"product_id": p_valid, "quantity": "1.00"},
+                        {"product_id": p_tiny, "quantity": "0.01"},
+                    ],
+                    "payments": [{"payment_method": "cash", "amount": "10.00"}],
+                },
+            )
             resp_overflow = await client.post(
                 SALES_URL,
                 cookies=cookies,
@@ -1020,6 +1129,7 @@ async def test_reject_sale_total_rounding_to_zero_or_overflow(
             )
 
         _assert_uniform_error_response(resp_zero, 422, "VALIDATION_ERROR")
+        _assert_uniform_error_response(resp_multi_zero, 422, "VALIDATION_ERROR")
         _assert_uniform_error_response(resp_overflow, 422, "VALIDATION_ERROR")
     finally:
         await _cleanup_businesses(db_session, [business_id])
@@ -1099,7 +1209,7 @@ async def test_reject_empty_lists_invalid_method_invalid_uuid_or_nul_bytes(
             response = await client.post(SALES_URL, cookies=cookies, json=payload)
 
     _assert_uniform_error_response(response, 422, "VALIDATION_ERROR")
-    assert not any("insert into sales" in stmt for stmt, _ in sql_log)
+    assert not any("from products" in stmt or "insert into sales" in stmt for stmt, _ in sql_log)
 
 
 @pytest.mark.asyncio
@@ -1110,6 +1220,25 @@ async def test_unauthenticated_and_onboarding_pending_rejected(sales_auth_env: N
         business_id=None,
         role=None,
     )
+    expired_cookies = _make_jwt_cookie(
+        user_id=str(uuid.uuid4()),
+        business_id=str(uuid.uuid4()),
+        role="owner",
+        exp_offset_seconds=-60,
+    )
+    bad_sig_token = jwt.encode(
+        {
+            "sub": str(uuid.uuid4()),
+            "email": "owner@example.com",
+            "business_id": str(uuid.uuid4()),
+            "role": "owner",
+            "token_type": "access",
+            "iat": int(time.time()),
+            "exp": int(time.time()) + 900,
+        },
+        "wrong-secret-key-for-signature-test-32b",
+        algorithm="HS256",
+    )
     valid_body = {
         "client_id": str(uuid.uuid4()),
         "items": [{"product_id": str(uuid.uuid4()), "quantity": "1.00"}],
@@ -1119,9 +1248,21 @@ async def test_unauthenticated_and_onboarding_pending_rejected(sales_auth_env: N
     with _capture_sql_statements() as sql_log:
         async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
             unauth_resp = await client.post(SALES_URL, json=valid_body)
+            bad_sig_resp = await client.post(
+                SALES_URL,
+                cookies={"access_token": bad_sig_token},
+                json=valid_body,
+            )
+            expired_resp = await client.post(
+                SALES_URL,
+                cookies=expired_cookies,
+                json=valid_body,
+            )
             onb_resp = await client.post(SALES_URL, cookies=onboarding_cookies, json=valid_body)
 
     _assert_uniform_error_response(unauth_resp, 401, "UNAUTHENTICATED")
+    _assert_uniform_error_response(bad_sig_resp, 401, "UNAUTHENTICATED")
+    _assert_uniform_error_response(expired_resp, 401, "UNAUTHENTICATED")
     _assert_uniform_error_response(onb_resp, 403, "ONBOARDING_REQUIRED")
     assert not any("sales" in stmt for stmt, _ in sql_log)
 
@@ -1206,6 +1347,7 @@ async def test_cross_tenant_or_missing_product_rejected_404_and_body_business_id
             stock=Decimal("10.00"),
         )
 
+    missing_id = str(uuid.uuid4())
     cookies_a = _make_jwt_cookie(user_id=owner_a, business_id=business_a, role="owner")
     try:
         transport = httpx.ASGITransport(app=app)
@@ -1224,7 +1366,7 @@ async def test_cross_tenant_or_missing_product_rejected_404_and_body_business_id
                 cookies=cookies_a,
                 json={
                     "client_id": str(uuid.uuid4()),
-                    "items": [{"product_id": str(uuid.uuid4()), "quantity": "1.00"}],
+                    "items": [{"product_id": missing_id, "quantity": "1.00"}],
                     "payments": [{"payment_method": "cash", "amount": "100.00"}],
                 },
             )
@@ -1239,8 +1381,10 @@ async def test_cross_tenant_or_missing_product_rejected_404_and_body_business_id
                 },
             )
 
-        _assert_uniform_error_response(cross_resp, 404, "PRODUCT_NOT_FOUND")
-        _assert_uniform_error_response(missing_resp, 404, "PRODUCT_NOT_FOUND")
+        cross_body = _assert_uniform_error_response(cross_resp, 404, "PRODUCT_NOT_FOUND")
+        assert cross_body["details"] == {"missing_product_ids": [prod_b]}
+        missing_body = _assert_uniform_error_response(missing_resp, 404, "PRODUCT_NOT_FOUND")
+        assert missing_body["details"] == {"missing_product_ids": [missing_id]}
 
         assert valid_with_spoofed_business.status_code == 201
         created_sale_id = valid_with_spoofed_business.json()["id"]
