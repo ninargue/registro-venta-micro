@@ -446,6 +446,92 @@
           }
         }
       }
+    },
+    "/api/v1/reports/daily": {
+      "get": {
+        "tags": [
+          "reports"
+        ],
+        "summary": "Get Daily Report",
+        "description": "Obtiene el consolidado diario de ventas, medios de pago, costos y margen (solo owner).",
+        "operationId": "get_daily_report_api_v1_reports_daily_get",
+        "parameters": [
+          {
+            "name": "date",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "date"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Fecha local del reporte en formato ISO YYYY-MM-DD (por defecto, fecha actual en la zona horaria del comercio)",
+              "examples": [
+                "2026-11-19"
+              ],
+              "title": "Date"
+            },
+            "description": "Fecha local del reporte en formato ISO YYYY-MM-DD (por defecto, fecha actual en la zona horaria del comercio)"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DailyReportResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          }
+        }
+      }
     }
   },
   "components": {
@@ -533,6 +619,85 @@
         ],
         "title": "BusinessSummary",
         "description": "Resumen del comercio asociado al usuario."
+      },
+      "DailyReportResponse": {
+        "properties": {
+          "date": {
+            "type": "string",
+            "format": "date",
+            "title": "Date",
+            "description": "Fecha local consolidada en la zona horaria del comercio",
+            "examples": [
+              "2026-11-19"
+            ]
+          },
+          "timezone": {
+            "type": "string",
+            "title": "Timezone",
+            "description": "Zona horaria IANA aplicada al corte diario",
+            "examples": [
+              "America/Argentina/Buenos_Aires"
+            ]
+          },
+          "total_sales": {
+            "type": "string",
+            "title": "Total Sales",
+            "description": "Total bruto facturado en el día",
+            "examples": [
+              "30000.00"
+            ]
+          },
+          "transactions_count": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Transactions Count",
+            "description": "Cantidad total de ventas registradas en el día",
+            "examples": [
+              3
+            ]
+          },
+          "total_cost": {
+            "type": "string",
+            "title": "Total Cost",
+            "description": "Costo total acumulado de mercadería vendida (SUM(quantity * unit_cost))",
+            "examples": [
+              "21000.00"
+            ]
+          },
+          "gross_margin": {
+            "type": "string",
+            "title": "Gross Margin",
+            "description": "Margen bruto estimado (total_sales - total_cost)",
+            "examples": [
+              "9000.00"
+            ]
+          },
+          "margin_percentage": {
+            "type": "string",
+            "title": "Margin Percentage",
+            "description": "Porcentaje de rentabilidad sobre ventas ((gross_margin / total_sales) * 100); 0.00 si no hay ventas",
+            "examples": [
+              "30.00"
+            ]
+          },
+          "payment_breakdown": {
+            "$ref": "#/components/schemas/PaymentMethodBreakdown",
+            "description": "Desglose de recaudación por medio de pago"
+          }
+        },
+        "type": "object",
+        "required": [
+          "date",
+          "timezone",
+          "total_sales",
+          "transactions_count",
+          "total_cost",
+          "gross_margin",
+          "margin_percentage",
+          "payment_breakdown"
+        ],
+        "title": "DailyReportResponse",
+        "description": "Consolidado diario de ventas, medios de pago, costos y margen bruto."
       },
       "ErrorResponse": {
         "properties": {
@@ -641,6 +806,42 @@
         ],
         "title": "OnboardingRequest",
         "description": "Payload de creación de comercio en POST /api/v1/auth/onboarding."
+      },
+      "PaymentMethodBreakdown": {
+        "properties": {
+          "cash": {
+            "type": "string",
+            "title": "Cash",
+            "description": "Total recaudado en efectivo",
+            "examples": [
+              "15000.00"
+            ]
+          },
+          "card": {
+            "type": "string",
+            "title": "Card",
+            "description": "Total recaudado con tarjeta",
+            "examples": [
+              "10000.00"
+            ]
+          },
+          "transfer": {
+            "type": "string",
+            "title": "Transfer",
+            "description": "Total recaudado por transferencia/QR",
+            "examples": [
+              "5000.00"
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "cash",
+          "card",
+          "transfer"
+        ],
+        "title": "PaymentMethodBreakdown",
+        "description": "Desglose de recaudación diaria por medio de pago."
       },
       "ProductCreate": {
         "properties": {
