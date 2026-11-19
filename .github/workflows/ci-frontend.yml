@@ -5,10 +5,6 @@ name: CI Frontend
 
 on:
   pull_request:
-    branches:
-      - develop
-      - master
-      - 'release/**'
     paths:
       - 'frontend/**'
       - '.nvmrc'
