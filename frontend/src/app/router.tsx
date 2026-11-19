@@ -1,10 +1,20 @@
-import { createBrowserRouter } from "react-router";
+import { createBrowserRouter, Navigate } from "react-router";
 import type { RouteObject } from "react-router";
+import { CounterShellContainer } from "@/features/auth/containers/CounterShellContainer";
+import { LoginContainer } from "@/features/auth/containers/LoginContainer";
 
 export const routes: RouteObject[] = [
   {
+    path: "/login",
+    element: <LoginContainer />,
+  },
+  {
     path: "/",
-    element: <h1>registro-venta-micro</h1>,
+    element: <CounterShellContainer />,
+  },
+  {
+    path: "*",
+    element: <Navigate to="/" replace />,
   },
 ];
 
