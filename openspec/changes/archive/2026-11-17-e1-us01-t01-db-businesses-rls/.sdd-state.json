@@ -1,0 +1,28 @@
+{
+  "db_test_fingerprint": {
+    "frozenAt": "2026-11-17T02:41:12.934Z",
+    "testsDir": "C:\\Users\\Armenta\\Documents\\Repositories\\wt-39-auth-onboarding-rls\\backend\\tests",
+    "fileCount": 6,
+    "files": {
+      "__pycache__/conftest.cpython-314-pytest-9.2.0.pyc": "3f1a216f1ce312dc1e666d4715737d8cd0ca345ee78755b1682ab80eec08fb68",
+      "conftest.py": "840e646a51ccf0c1e2faaac0b3368a784570bae9190616e6003720a66095fcfd",
+      "integration/__pycache__/test_db_businesses.cpython-314-pytest-9.2.0.pyc": "f621c1f80651dd3b65c92cd28717acf01aa290da701eea2595c51754ffebda0d",
+      "integration/test_db_businesses.py": "8670e6fd704eb34d1ccb48873a5b822b19b383e495f64fdc1d4352b89428c46e",
+      "unit/__pycache__/test_health.cpython-314-pytest-9.2.0.pyc": "9c5a1ba4810fa4c648e50deb0a40f2e80736b0d38fbd8c15f95ef2b2c75868d4",
+      "unit/test_health.py": "c4d4e5c25bd5dbb99976e8a93f02971712e1afb6ed42cc8da876b0e220935944"
+    },
+    "history": [
+      {
+        "event": "freeze",
+        "at": "2026-11-17T01:39:37.754Z",
+        "fileCount": 6
+      },
+      {
+        "event": "refreeze",
+        "at": "2026-11-17T02:41:12.944Z",
+        "fileCount": 6,
+        "reason": "ajuste de conexion NullPool y cambio a rol authenticated para evaluacion RLS en postgres"
+      }
+    ]
+  }
+}
