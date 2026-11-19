@@ -94,7 +94,7 @@ PRs hacia `master` (`release/*`, `hotfix/*`) → **Create a merge commit**.
 
 - Todo issue se trabaja de principio a fin con el skill `lifecycle-dev`: preparar rama, worktree y workspace; desarrollar con commits atómicos; cerrar el desarrollo y, al final, mergear y limpiar.
 - **Creación obligatoria de PR con template:** Al abrir o actualizar un PR desde CLI (`gh pr create` / `gh pr edit`), usar siempre el template oficial mediante `--body-file` o completando rigurosamente cada campo de `.github/pull_request_template.md`.
-- **Creación obligatoria de ADR con template:** Todo nuevo ADR debe crearse en `docs/adr/NNNN-titulo-en-kebab-case.md` usando obligatoriamente como base el template oficial `docs/adr/0000-plantilla-adr.md` (conservando todas sus secciones, eliminando los comentarios guía HTML y redactando a nivel arquitectónico sin detalles de implementación como nombres de columnas, variables o rutas de código).
+- **Creación obligatoria de ADR con template:** Todo nuevo ADR debe crearse en `docs/adr/NNNN-titulo-en-kebab-case.md` usando obligatoriamente como base el template oficial `docs/adr/0000-plantilla-adr.md`.
 - No desactivar reglas de lint ni de tipos para que pase un check.
 - Agregar dependencias con `uv add` (backend) o `npm install` (frontend/raíz), nunca editando los manifiestos a mano.
 - Antes de afirmar qué soporta una plataforma (Vercel, Supabase, GitHub) o qué versión de una action existe, consultar la fuente y citarla.
