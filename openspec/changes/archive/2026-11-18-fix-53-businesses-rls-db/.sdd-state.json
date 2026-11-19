@@ -1,0 +1,46 @@
+{
+  "db_test_fingerprint": {
+    "frozenAt": "2026-11-18T03:16:15.953Z",
+    "testsDir": "C:\\Users\\Armenta\\Documents\\Repositories\\wt-39-auth-onboarding-rls\\backend\\tests",
+    "fileCount": 6,
+    "files": {
+      "__pycache__/conftest.cpython-314-pytest-9.2.0.pyc": "3f1a216f1ce312dc1e666d4715737d8cd0ca345ee78755b1682ab80eec08fb68",
+      "conftest.py": "840e646a51ccf0c1e2faaac0b3368a784570bae9190616e6003720a66095fcfd",
+      "integration/__pycache__/test_db_businesses.cpython-314-pytest-9.2.0.pyc": "5309e3be48938a0ff462d9c23c57c94e619f8365b72022da39c3dbb18611e02e",
+      "integration/test_db_businesses.py": "87a4ab235af69d110f63c242bc1ed5c4567bd77aa9044af7ce9e7706e13cb951",
+      "unit/__pycache__/test_health.cpython-314-pytest-9.2.0.pyc": "9c5a1ba4810fa4c648e50deb0a40f2e80736b0d38fbd8c15f95ef2b2c75868d4",
+      "unit/test_health.py": "c4d4e5c25bd5dbb99976e8a93f02971712e1afb6ed42cc8da876b0e220935944"
+    },
+    "history": [
+      {
+        "event": "freeze",
+        "at": "2026-11-18T02:33:17.141Z",
+        "fileCount": 6
+      },
+      {
+        "event": "refreeze",
+        "at": "2026-11-18T03:16:15.984Z",
+        "fileCount": 6,
+        "reason": "Refuerzo de aserciones tras Mutation Testing"
+      }
+    ]
+  },
+  "errors": [
+    {
+      "attempt": null,
+      "timestamp": "2026-11-18T02:38:45.011Z",
+      "layer": "db",
+      "step": "Paso 5",
+      "error_signature": "7ffc3df080a9",
+      "message": "InsufficientPrivilegeError: permission denied to set role app_api",
+      "avoid": "Grant app_api membership to current_user in migration 0003 if not superuser"
+    }
+  ],
+  "max_repeat": 2,
+  "layer": "db",
+  "attempt": null,
+  "consecutive_same_signature": 1,
+  "last_signature": "7ffc3df080a9",
+  "loop_detected": false,
+  "promoted": true
+}
