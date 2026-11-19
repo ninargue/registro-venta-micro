@@ -1,0 +1,29 @@
+{
+  "db_test_fingerprint": {
+    "frozenAt": "2026-11-19T04:25:31.875Z",
+    "testsDir": "C:\\Users\\Armenta\\Documents\\Repositories\\wt-46-esquema-bd-ventas-pagos-rls\\backend\\tests",
+    "fileCount": 7,
+    "files": {
+      "conftest.py": "840e646a51ccf0c1e2faaac0b3368a784570bae9190616e6003720a66095fcfd",
+      "integration/test_auth_onboarding.py": "dd03f1a7e34b86633696792f5322b940cc73d575d75f31d07cb96007cba847bb",
+      "integration/test_db_businesses.py": "5269539b93a33bfaa991ff5d2f01d522c97dd3c609beca2a98462f6e0a9b250d",
+      "integration/test_db_products.py": "f461af385a79188db4e49fd3dd951b5892cc588b644c04bd10a8ad182530dbb2",
+      "integration/test_db_sales.py": "fff8247b5664b42888945dee8d0902755e8dd90c4cfb4cf53ff5eaf03042e771",
+      "unit/test_auth_schemas.py": "f1410ff384f81fd0929981dad351fe1bf84f044790aefd8d655882331fac5bf5",
+      "unit/test_health.py": "c4d4e5c25bd5dbb99976e8a93f02971712e1afb6ed42cc8da876b0e220935944"
+    },
+    "history": [
+      {
+        "event": "freeze",
+        "at": "2026-11-19T04:07:55.663Z",
+        "fileCount": 10
+      },
+      {
+        "event": "refreeze",
+        "at": "2026-11-19T04:25:31.878Z",
+        "fileCount": 7,
+        "reason": "Excluir __pycache__/*.pyc generados por pytest; archivos .py intactos desde ROJO"
+      }
+    ]
+  }
+}

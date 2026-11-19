@@ -1,6 +1,6 @@
 # Modelo de Datos Consolidado (`registro-venta-micro`)
 
-Diagrama Entidad-Relación (ERD) del esquema operativo en PostgreSQL 17 (Alembic aplicado: `a3f9d2e1b4c8`; incluye diseño consolidado `US-03-T06` para `sales`, `sale_items` y `payments` en `openspec/changes/us-03-t06-esquema-ventas-rls-db`).  
+Diagrama Entidad-Relación (ERD) del esquema operativo en PostgreSQL 17 (Alembic aplicado: `d4e7f1a2b9c3`; incluye diseño consolidado `US-03-T06` para `sales`, `sale_items` y `payments` en `openspec/changes/us-03-t06-esquema-ventas-rls-db`).  
 Todas las tablas operativas están protegidas con `ENABLE` y `FORCE ROW LEVEL SECURITY` usando `app.current_business_id` (y `app.current_user_id` en `business_users` / `businesses` durante login y onboarding).
 
 ```mermaid
