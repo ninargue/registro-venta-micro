@@ -1,0 +1,163 @@
+{
+  "openapi_hash": "bceebdba7d5e23cef9d76e0bca08f2a02030acd12b713d64e112f30e34d7cfd9",
+  "protected_snapshots": {
+    "backend": "56bfd08f996808ad19c717d57b332b4cefc140b575360e4b31b20e00303e8260"
+  },
+  "revision_count": {
+    "architect": 0,
+    "qa": 0,
+    "maquetador": 0,
+    "integrador": 0,
+    "auditor": 0
+  },
+  "diff_history": [
+    {
+      "node": "architect",
+      "attempt": 0,
+      "status": "passed",
+      "snapshot_hash": "da4a7a5427542f976c70702c7b9c37669ecc91fab8d67b85ef8850a3512016fe",
+      "ts": "2026-11-19T04:11:08.550Z"
+    },
+    {
+      "node": "qa",
+      "attempt": 0,
+      "status": "passed",
+      "snapshot_hash": "24f90d7e580cce7c51634d75b16eb025aafc4e9c84022ecfbd1a385fc1cf9976",
+      "ts": "2026-11-19T04:27:54.714Z"
+    },
+    {
+      "node": "qa",
+      "status": "tests-snapshot",
+      "tests_hash": "f2a83bef82c882a5091569d11cb342fbdddbda7baa99fc43f61c25cf4c113321",
+      "ts": "2026-11-19T04:27:54.744Z"
+    },
+    {
+      "node": "maquetador",
+      "attempt": 1,
+      "status": "failed",
+      "snapshot_hash": "adaf2ade2e6cfb634c3e7fbe3cc1dfacd25587fdfe67d8985495d43719d51a02",
+      "ts": "2026-11-19T04:33:41.478Z"
+    },
+    {
+      "node": "qa",
+      "attempt": 0,
+      "status": "passed",
+      "snapshot_hash": "9a9432f8f7286538ee7cfc8a3098c56fb191f3730adafa0e222277f8e6e60a8b",
+      "ts": "2026-11-19T04:35:14.636Z"
+    },
+    {
+      "node": "qa",
+      "status": "tests-snapshot",
+      "tests_hash": "d442bc1305be9fb2f856a81dba3273fddd4ca3331ed53d9faf417c93e5c2edbd",
+      "ts": "2026-11-19T04:35:14.826Z"
+    },
+    {
+      "node": "qa",
+      "attempt": 0,
+      "status": "passed",
+      "snapshot_hash": "2099169eeb2b7da1d6714d3866db38cda844daf83729b6b1a5f11931c1d45344",
+      "ts": "2026-11-19T04:37:15.472Z"
+    },
+    {
+      "node": "qa",
+      "status": "tests-snapshot",
+      "tests_hash": "5b9f4af706c08c80c0047737d6fa2a3860b80e0725b7e5af472a4a686c98ff08",
+      "ts": "2026-11-19T04:37:15.544Z"
+    },
+    {
+      "node": "maquetador",
+      "attempt": 0,
+      "status": "passed",
+      "snapshot_hash": "0ac69df97ecfe73297219d7b3ccd9fbc29a33f28bed203627e9c0f080153d6fb",
+      "ts": "2026-11-19T04:38:03.212Z"
+    },
+    {
+      "node": "integrador",
+      "attempt": 0,
+      "status": "passed",
+      "snapshot_hash": "f309a7cda13fc6a526d75132467754e26b27b37a9ebb8c011b7ea00797bc599c",
+      "ts": "2026-11-19T11:23:09.253Z"
+    },
+    {
+      "node": "auditor",
+      "attempt": 1,
+      "status": "failed",
+      "snapshot_hash": "dfa50eee5fef53020bf21a48b6adbb56206a2cae39d4d071fe23278b44328c23",
+      "ts": "2026-11-19T11:37:44.922Z"
+    },
+    {
+      "node": "auditor",
+      "attempt": 2,
+      "status": "failed",
+      "snapshot_hash": "c1f31acadaf033ac9b9dcb0633e1e52efa68cbe875992d2e3733dbfd4c3e5f66",
+      "ts": "2026-11-19T11:42:28.436Z"
+    },
+    {
+      "node": "auditor",
+      "attempt": 0,
+      "status": "passed",
+      "snapshot_hash": "68af0c07b9066ecba8406a0a6faa71fd6edc3d274f58968a4b567ba4a77d53d4",
+      "ts": "2026-11-19T11:49:42.780Z"
+    },
+    {
+      "node": "qa",
+      "attempt": 0,
+      "status": "passed",
+      "snapshot_hash": "d319b134b23e0ebf8275faf94915371929862b257c94cf3f193c459110288407",
+      "ts": "2026-11-19T12:01:55.560Z"
+    },
+    {
+      "node": "qa",
+      "status": "tests-snapshot",
+      "tests_hash": "5d81f9daad96cd7983015f4ad399defc32d77719d2c73b23e8544e02a6ae1d58",
+      "ts": "2026-11-19T12:01:55.587Z"
+    },
+    {
+      "node": "auditor",
+      "attempt": 0,
+      "status": "passed",
+      "snapshot_hash": "8541e6d77f81c112d03aed836f939a740cccf71c5e45d243047babdc94e21aa8",
+      "ts": "2026-11-19T12:03:24.256Z"
+    },
+    {
+      "node": "qa",
+      "attempt": 0,
+      "status": "passed",
+      "snapshot_hash": "b2c33e157dc35bd0b26b0efd042d5cefd0208907ba49a5499d1fe5c4c79c5ca8",
+      "ts": "2026-11-19T12:33:39.050Z"
+    },
+    {
+      "node": "qa",
+      "status": "tests-snapshot",
+      "tests_hash": "074b9f973e7a32b9edfaba63753820b24797193a9cc55d257391fba36bc76a15",
+      "ts": "2026-11-19T12:33:39.096Z"
+    },
+    {
+      "node": "auditor",
+      "attempt": 1,
+      "status": "failed",
+      "snapshot_hash": "821a815ec3ad79fbfd0dd9a3f4b80b8ed7489e5eb20e6e6b90d027879b82ba39",
+      "ts": "2026-11-19T12:35:31.298Z"
+    },
+    {
+      "node": "qa",
+      "attempt": 0,
+      "status": "passed",
+      "snapshot_hash": "c605ab07d0afe9e2214fd5bceca2379482bcb2ffe38f860418d4aec08ecf991c",
+      "ts": "2026-11-19T12:35:47.890Z"
+    },
+    {
+      "node": "qa",
+      "status": "tests-snapshot",
+      "tests_hash": "22ad7ca9960a1c2db7577ef4e6fb5c2b14a245bb03f7ddbf0b9fe84cf3966dda",
+      "ts": "2026-11-19T12:35:47.915Z"
+    },
+    {
+      "node": "auditor",
+      "attempt": 0,
+      "status": "passed",
+      "snapshot_hash": "821a815ec3ad79fbfd0dd9a3f4b80b8ed7489e5eb20e6e6b90d027879b82ba39",
+      "ts": "2026-11-19T12:37:07.462Z"
+    }
+  ]
+}
