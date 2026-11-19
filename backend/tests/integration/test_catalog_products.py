@@ -44,6 +44,7 @@ def _make_jwt_cookie(
         "email": email,
         "business_id": business_id,
         "role": role,
+        "token_type": "access",
         "iat": now,
         "exp": now + exp_offset_seconds,
     }
@@ -1162,3 +1163,70 @@ async def test_openapi_documents_catalog_routes_and_schemas() -> None:
     assert "ProductCreate" in schemas
     assert "ProductResponse" in schemas
     assert "ProductListResponse" in schemas
+
+    product_response_props = schemas["ProductResponse"]["properties"]
+    assert "sale_price" in product_response_props
+    assert "cost_price" in product_response_props
+    assert {"type": "null"} in product_response_props["cost_price"].get("anyOf", [])
+    assert "stock" in product_response_props
+    assert set(schemas["ProductListResponse"]["properties"].keys()) == {
+        "items",
+        "total",
+        "limit",
+        "offset",
+    }
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "huge_value",
+    [
+        "1e30",
+        "1000000000000000000000000000",
+        "100000000000000000000000000.00",
+    ],
+)
+async def test_reject_huge_decimal_precision_without_500(
+    catalog_auth_env: None,
+    huge_value: str,
+) -> None:
+    """Scenario: Huge decimal strings (>28 digits) return 422 instead of 500 InvalidOperation."""
+    cookies = _make_jwt_cookie(
+        user_id=str(uuid.uuid4()),
+        business_id=str(uuid.uuid4()),
+        role="owner",
+    )
+    transport = httpx.ASGITransport(app=app)
+    async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+        response = await client.post(
+            CATALOG_PRODUCTS_URL,
+            json={"name": "Overflow", "sale_price": huge_value},
+            cookies=cookies,
+        )
+
+    assert response.status_code == 422
+    assert response.json()["code"] == "VALIDATION_ERROR"
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("bad_offset", [2_147_483_648, 99_999_999_999_999_999_999])
+async def test_reject_oversized_offset_without_500(
+    catalog_auth_env: None,
+    bad_offset: int,
+) -> None:
+    """Scenario: Oversized offset (> int32) returns 422 instead of 500 asyncpg DataError."""
+    cookies = _make_jwt_cookie(
+        user_id=str(uuid.uuid4()),
+        business_id=str(uuid.uuid4()),
+        role="owner",
+    )
+    transport = httpx.ASGITransport(app=app)
+    async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+        response = await client.get(
+            CATALOG_PRODUCTS_URL,
+            params={"offset": str(bad_offset)},
+            cookies=cookies,
+        )
+
+    assert response.status_code == 422
+    assert response.json()["code"] == "VALIDATION_ERROR"

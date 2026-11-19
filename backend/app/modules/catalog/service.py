@@ -4,7 +4,6 @@ from app.core.security import CurrentUser
 from app.modules.catalog.models import Product
 from app.modules.catalog.repository import CatalogRepository
 from app.modules.catalog.schemas import (
-    DECIMAL_QUANTIZER,
     ProductCreate,
     ProductListQuery,
     ProductListResponse,
@@ -50,9 +49,9 @@ class CatalogService:
             id=product.id,
             code=product.code,
             name=product.name,
-            sale_price=product.sale_price.quantize(DECIMAL_QUANTIZER),
-            cost_price=None if redact_cost else product.cost_price.quantize(DECIMAL_QUANTIZER),
-            stock=product.stock.quantize(DECIMAL_QUANTIZER),
+            sale_price=product.sale_price,
+            cost_price=None if redact_cost else product.cost_price,
+            stock=product.stock,
             is_active=product.is_active,
             created_at=product.created_at,
             updated_at=product.updated_at,

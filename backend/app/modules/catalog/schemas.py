@@ -39,7 +39,13 @@ def _parse_strict_decimal(value: Any) -> Decimal:
     if isinstance(exponent, int) and exponent < -2:
         raise ValueError("At most 2 decimal places are allowed")
 
-    return parsed.quantize(DECIMAL_QUANTIZER)
+    if abs(parsed) > MAX_NUMERIC_12_2:
+        raise ValueError("Decimal value exceeds numeric(12,2) range")
+
+    try:
+        return parsed.quantize(DECIMAL_QUANTIZER)
+    except InvalidOperation as exc:
+        raise ValueError("Decimal value exceeds supported precision") from exc
 
 
 class ProductCreate(BaseModel):
@@ -135,6 +141,7 @@ class ProductListQuery(BaseModel):
     offset: int = Field(
         default=0,
         ge=0,
+        le=2_147_483_647,
         description="Desplazamiento para paginación",
     )
 
