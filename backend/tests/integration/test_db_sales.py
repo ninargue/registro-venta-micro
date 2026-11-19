@@ -1488,12 +1488,14 @@ async def test_sales_tables_reject_duplicate_primary_keys(
     db_session: AsyncSession,
 ) -> None:
     business_id = str(uuid.uuid4())
+    other_business_id = str(uuid.uuid4())
     sale_id = str(uuid.uuid4())
     item_id = str(uuid.uuid4())
     payment_id = str(uuid.uuid4())
     async with db_session.begin() as tx:
         try:
             await _insert_business(db_session, business_id, "Comercio PKs")
+            await _insert_business(db_session, other_business_id, "Comercio PKs 2")
             pid = await _insert_product(db_session, business_id=business_id, name="Prod PK")
             await _insert_sale(
                 db_session,
@@ -1519,7 +1521,7 @@ async def test_sales_tables_reject_duplicate_primary_keys(
                 async with db_session.begin_nested():
                     await _insert_sale(
                         db_session,
-                        business_id=business_id,
+                        business_id=other_business_id,
                         client_id=str(uuid.uuid4()),
                         sale_id=sale_id,
                     )

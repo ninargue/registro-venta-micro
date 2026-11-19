@@ -23,4 +23,4 @@
 
 - [x] 4.1 Ejecutar validación estática SQL (`validate-db-migrations.js`), aplicar `cd backend && uv run alembic upgrade head`, comprobar sincronía ORM (`uv run alembic check`) y validar roundtrip (`alembic downgrade -1` / `downgrade base` y `upgrade head`) contra `DB_TEST_URL`
 - [x] 4.2 Ejecutar `cd backend && uv run ruff check . && uv run ruff format --check . && uv run mypy app` y `cd backend && uv run pytest` confirmando 100% en VERDE
-- [ ] 4.3 Auditar falsabilidad de `backend/tests/integration/test_db_sales.py` (Mutation Testing M1–M5 sobre constraints, FKs compuestas, idempotencia y RLS) y confirmar `openspec validate "us-03-t06-esquema-ventas-rls-db"` en verde
+- [x] 4.3 Auditar falsabilidad de `backend/tests/integration/test_db_sales.py` (Mutation Testing M1–M5 sobre constraints, FKs compuestas, idempotencia y RLS) y confirmar `openspec validate "us-03-t06-esquema-ventas-rls-db"` en verde

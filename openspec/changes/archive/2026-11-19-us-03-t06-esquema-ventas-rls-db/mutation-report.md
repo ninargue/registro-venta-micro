@@ -1,18 +1,18 @@
 # 🔬 REPORTE DE MUTATION TESTING Y FALSABILIDAD: us-03-t06-esquema-ventas-rls-db
 
 ## 1. Veredicto de Falsabilidad
-- **Estado:** `[TESTS COMPLACIENTES DETECTADOS]`
-- **Tests Auditados:** `backend/tests/integration/test_db_sales.py` (25 tests de integración DB — `25 passed in 11.43s` y `25 passed in 10.45s` en ejecuciones consecutivas con `PYTHONDONTWRITEBYTECODE=1` sobre `DB_TEST_URL=postgresql+asyncpg://postgres:postgres@127.0.0.1:54422/postgres_test`)
-- **Tasa de Mutantes Eliminados:** `80/81` (`98.8%`)
+- **Estado:** `[TESTS BLINDADOS]`
+- **Tests Auditados:** `backend/tests/integration/test_db_sales.py` (25 tests de integración DB — `25 passed in 7.64s` antes y `25 passed in 8.46s` después con `PYTHONDONTWRITEBYTECODE=1` sobre `DB_TEST_URL=postgresql+asyncpg://postgres:postgres@127.0.0.1:54422/postgres_test`)
+- **Tasa de Mutantes Eliminados:** `81/81` (`100%`)
 
-> Re-ejecución tras el refuerzo de `backend/tests/integration/test_db_sales.py` (de 21 a 25 tests). Todas las mutaciones fueron evaluadas dinámicamente contra la base de pruebas efímera PostgreSQL 17 (`postgresql+asyncpg://postgres:postgres@127.0.0.1:54422/postgres_test`) dentro de transacciones externas con `ROLLBACK` completo (savepoints por test + rollback por cada mutante), sin modificar archivos de migración ni de test en el repositorio.
-> - **Progreso respecto a corrida previa:** `7` de los `8` mutantes previamente sobrevivientes ahora fueron eliminados (`M1b`, `M1c`, `M1u`, `M1w`, `M2i_items`, `M2i_pay`, `M2j_pay_restrict`), además de cobertura positiva directa para `M1t` y verificación de los 4 índices `M1w` de forma individual y con orden de columnas invertido.
-> - **M1 (Constraints, Tipos, Defaults e Índices):** `30/31` mutantes eliminados (`96.8%`). Sobrevive únicamente **`M1a`** (`DROP CONSTRAINT pk_sales`) porque `test_sales_tables_reject_duplicate_primary_keys` reutiliza el mismo `business_id`, quedando enmascarado por `uq_sales_business_id_id`.
+> Verificación final tras el refuerzo de `backend/tests/integration/test_db_sales.py::test_sales_tables_reject_duplicate_primary_keys` (inserción duplicada de `sale_id` bajo `other_business_id` y distinto `client_id`). Todas las mutaciones fueron evaluadas dinámicamente contra la base de pruebas efímera PostgreSQL 17 (`postgresql+asyncpg://postgres:postgres@127.0.0.1:54422/postgres_test`) dentro de transacciones externas con `ROLLBACK` completo (savepoints por test + rollback por cada mutante), sin modificar archivos de migración ni de test en el repositorio.
+> - **Cierre del mutante pendiente (`M1a`):** Al ejecutar dinámicamente `ALTER TABLE sales DROP CONSTRAINT pk_sales;` dentro de una transacción con `ROLLBACK`, `test_sales_tables_reject_duplicate_primary_keys` falló tanto de forma aislada (`1 failed in 3.07s` — `DID NOT RAISE IntegrityError` en línea 1520) como en la suite completa (`1 failed, 24 passed in 6.17s`).
+> - **M1 (Constraints, Tipos, Defaults e Índices):** `31/31` mutantes eliminados (`100.0%`).
 > - **M2 (FKs Huérfanas, Compuestas y Acciones Referenciales):** `11/11` mutantes eliminados (`100.0%`).
 > - **M3 (RLS Bypass y DCL):** `35/35` mutantes eliminados (`100.0%`) en `sales`, `sale_items` y `payments`.
 > - **M4 (Masked Exception):** `3/3` mutantes dinámicos eliminados (`100.0%`) y `25/25` bloques `pytest.raises` validados estáticamente con `_assert_sqlstate` exacto.
-> - **M5 (Rollback Isolation / Idempotencia):** `1/1` verificado (`25 passed` en 2 corridas consecutivas; `0` filas residuales en `businesses`, `business_users`, `products`, `sales`, `sale_items`, `payments` antes y después).
-> - **Brecha restante (`1` mutante sobreviviente):** **`M1a`** (`pk_sales`). Se mantiene el veredicto `[TESTS COMPLACIENTES DETECTADOS]` y la tarea `4.3` de `tasks.md` permanece sin marcar (`- [ ]`) hasta reforzar la prueba de `pk_sales` en `test_sales_tables_reject_duplicate_primary_keys`.
+> - **M5 (Rollback Isolation / Idempotencia):** `1/1` verificado (`25 passed in 7.64s` antes y `25 passed in 8.46s` después del `ROLLBACK` de `M1a`; `pk_sales` intacta y `0` filas residuales en `businesses`, `business_users`, `products`, `sales`, `sale_items`, `payments`).
+> - **Brechas restantes:** `0` mutantes sobrevivientes. Se actualiza el veredicto a `[TESTS BLINDADOS]` y se marca la tarea `4.3` en `tasks.md` (`- [x]`).
 
 ---
 
@@ -20,7 +20,7 @@
 
 | ID | Mutación | Archivo de Test | ¿Atrapó el Fallo? | Resultado |
 |---|---|---|---|---|
-| M1a | Omitir `PRIMARY KEY (id)` en `sales` (`DROP CONSTRAINT pk_sales`) | `backend/tests/integration/test_db_sales.py` (0/25 fallaron; `test_sales_tables_reject_duplicate_primary_keys` inserta el `sale_id` duplicado con el mismo `business_id`, por lo que `uq_sales_business_id_id` enmascara la ausencia de `pk_sales`) | No | 🧟 Vivo |
+| M1a | Omitir `PRIMARY KEY (id)` en `sales` (`DROP CONSTRAINT pk_sales`) | `backend/tests/integration/test_db_sales.py::test_sales_tables_reject_duplicate_primary_keys` (`1 failed, 24 passed in 6.17s`; `DID NOT RAISE IntegrityError` al insertar el mismo `sale_id` bajo `other_business_id`) | Sí | 🗑 Eliminado |
 | M1b | Omitir `PRIMARY KEY (id)` en `sale_items` (`DROP CONSTRAINT pk_sale_items`) | `backend/tests/integration/test_db_sales.py::test_sales_tables_reject_duplicate_primary_keys` (`DID NOT RAISE IntegrityError`) | Sí | 🗑 Eliminado |
 | M1c | Omitir `PRIMARY KEY (id)` en `payments` (`DROP CONSTRAINT pk_payments`) | `backend/tests/integration/test_db_sales.py::test_sales_tables_reject_duplicate_primary_keys` (`DID NOT RAISE IntegrityError`) | Sí | 🗑 Eliminado |
 | M1d | Omitir `UNIQUE (business_id, id)` en `sales` (`DROP CONSTRAINT uq_sales_business_id_id CASCADE`) | `backend/tests/integration/test_db_sales.py::test_sale_items_composite_fks_reject_cross_business_references`, `test_sale_items_restricts_product_delete_and_cascades_on_sale_delete`, `test_payments_rejects_cross_business_sale_and_cascades_on_sale_delete` (`DID NOT RAISE IntegrityError` / `AssertionError`) | Sí | 🗑 Eliminado |
@@ -100,12 +100,9 @@
 | M4_sales | Enmascarar `23514` en `sales.total_amount` mediante trigger `ERRCODE = 'P0001'` | `backend/tests/integration/test_db_sales.py::test_sales_rejects_zero_or_negative_total_amount` (`DBAPIError`, falla antes de `IntegrityError` / `_assert_sqlstate(..., "23514")`) | Sí | 🗑 Eliminado |
 | M4_items | Enmascarar `23514` en `sale_items.quantity` mediante trigger `ERRCODE = 'P0001'` | `backend/tests/integration/test_db_sales.py::test_sale_items_rejects_nulls_and_invalid_numeric_bounds` (`DBAPIError`, no `23514`) | Sí | 🗑 Eliminado |
 | M4_pay | Enmascarar `23514` en `payments.payment_method` mediante trigger `ERRCODE = 'P0001'` | `backend/tests/integration/test_db_sales.py::test_payments_rejects_invalid_method_non_positive_amount_and_nulls` (`DBAPIError`, no `23514`) | Sí | 🗑 Eliminado |
-| M5 | Fuga de datos / falta de idempotencia entre ejecuciones consecutivas | `backend/tests/integration/test_db_sales.py` (`25 passed in 11.43s` y `25 passed in 10.45s`; 0 filas residuales en las 6 tablas antes y después) | Sí | 🗑 Eliminado |
+| M5 | Fuga de datos / falta de idempotencia entre ejecuciones consecutivas | `backend/tests/integration/test_db_sales.py` (`25 passed in 7.64s` antes y `25 passed in 8.46s` después del `ROLLBACK` de `M1a`; `pk_sales` intacta y 0 filas residuales en las 6 tablas antes y después) | Sí | 🗑 Eliminado |
 
 ---
 
 ## 3. Brechas de Falsabilidad y Acción Requerida
-- **Estado `[TESTS COMPLACIENTES DETECTADOS]`:** Tras el refuerzo de `backend/tests/integration/test_db_sales.py`, **7 de los 8 mutantes previos quedaron eliminados** (`M1b`, `M1c`, `M1u`, `M1w`, `M2i_items`, `M2i_pay`, `M2j_pay_restrict`), pero **persiste 1 mutante sobreviviente (`M1a`)**, por lo que la tarea `4.3` de `tasks.md` permanece sin marcar (`- [ ]`) hasta que `db-qa-agent` corrija la siguiente brecha:
-  1. **`M1a` (`pk_sales` — `PRIMARY KEY (id)` en `sales`):**
-     - **Causa raíz de la complacencia:** En `backend/tests/integration/test_db_sales.py::test_sales_tables_reject_duplicate_primary_keys` (líneas 1487–1526), tanto la venta original como el intento de inserción duplicada utilizan el **mismo `business_id`**. Al eliminar `pk_sales` (`ALTER TABLE sales DROP CONSTRAINT pk_sales;`), la restricción compuesta `uq_sales_business_id_id` (`UNIQUE (business_id, id)`) sigue capturando `(business_id, sale_id)` con SQLSTATE `23505`, enmascarando por completo la ausencia de la clave primaria global `pk_sales`. Sin `pk_sales`, dos comercios distintos podrían insertar ventas con el mismo `id` UUID y los 25 tests pasarían en verde.
-     - **Refuerzo requerido en `test_sales_tables_reject_duplicate_primary_keys`:** Crear un segundo comercio `other_business_id = str(uuid.uuid4())` y verificar que insertar una venta en `sales` con el **mismo `sale_id`** pero **`business_id=other_business_id`** (y distinto `client_id`) falla con `pytest.raises(IntegrityError)` y `_assert_sqlstate(..., "23505")`, lo cual aísla exclusivamente `pk_sales` (`PRIMARY KEY (id)`) respecto a `uq_sales_business_id_id` (`UNIQUE (business_id, id)`). Adicionalmente puede verificarse `pk_sales` (`contype = 'p'`) en `pg_constraint`.
+- **Estado `[TESTS BLINDADOS]`:** Suite DB-TDD verificada como robusta y falsable (`81/81` mutantes eliminados, `100%`). Tras el refuerzo de `backend/tests/integration/test_db_sales.py::test_sales_tables_reject_duplicate_primary_keys` (líneas 1487–1551, probando duplicado de `sale_id` bajo `other_business_id`), la última brecha (`M1a`, `pk_sales`) murió dinámicamente bajo transacción efímera con `ROLLBACK` en `DB_TEST_URL`, quedando `test_db_sales.py` intacto en disco y `postgres_test` sin filas residuales. Cambio listo para archivo en OpenSpec.

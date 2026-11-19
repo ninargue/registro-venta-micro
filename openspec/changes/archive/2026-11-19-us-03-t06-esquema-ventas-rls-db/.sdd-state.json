@@ -1,6 +1,6 @@
 {
   "db_test_fingerprint": {
-    "frozenAt": "2026-11-19T11:04:24.788Z",
+    "frozenAt": "2026-11-19T11:27:02.337Z",
     "testsDir": "C:\\Users\\Armenta\\Documents\\Repositories\\wt-46-esquema-bd-ventas-pagos-rls\\backend\\tests",
     "fileCount": 7,
     "files": {
@@ -8,7 +8,7 @@
       "integration/test_auth_onboarding.py": "dd03f1a7e34b86633696792f5322b940cc73d575d75f31d07cb96007cba847bb",
       "integration/test_db_businesses.py": "5269539b93a33bfaa991ff5d2f01d522c97dd3c609beca2a98462f6e0a9b250d",
       "integration/test_db_products.py": "f461af385a79188db4e49fd3dd951b5892cc588b644c04bd10a8ad182530dbb2",
-      "integration/test_db_sales.py": "f492d5b6bdf599a652602da1bb1f13a0fae7c279afee85629fb81c080527bdc4",
+      "integration/test_db_sales.py": "33997772cbabd41b4a74541f37f8b3cad646ccb84aec97695b21e91e7d008cb8",
       "unit/test_auth_schemas.py": "f1410ff384f81fd0929981dad351fe1bf84f044790aefd8d655882331fac5bf5",
       "unit/test_health.py": "c4d4e5c25bd5dbb99976e8a93f02971712e1afb6ed42cc8da876b0e220935944"
     },
@@ -29,6 +29,12 @@
         "at": "2026-11-19T11:04:24.821Z",
         "fileCount": 7,
         "reason": "Refuerzo de aserciones tras Mutation Testing"
+      },
+      {
+        "event": "refreeze",
+        "at": "2026-11-19T11:27:02.338Z",
+        "fileCount": 7,
+        "reason": "Aislar pk_sales de uq_sales_business_id_id (M1a)"
       }
     ]
   }
