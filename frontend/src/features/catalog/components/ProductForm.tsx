@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from "react";
+import { useState, type SyntheticEvent } from "react";
 import { Button } from "@/shared/ui/Button";
 import { ErrorAlert } from "@/shared/ui/ErrorAlert";
 import { TextField } from "@/shared/ui/TextField";
@@ -23,15 +23,15 @@ export function ProductForm({
   errorMessage,
   fieldErrors,
 }: ProductFormProps) {
-  const [name, setName] = useState(initialValues?.name ?? "");
-  const [salePrice, setSalePrice] = useState(initialValues?.sale_price ?? "");
-  const [code, setCode] = useState(initialValues?.code ?? "");
-  const [costPrice, setCostPrice] = useState(initialValues?.cost_price ?? "");
-  const [stock, setStock] = useState(initialValues?.stock ?? "");
+  const [name, setName] = useState<string>(initialValues?.name ?? "");
+  const [salePrice, setSalePrice] = useState<string>(initialValues?.sale_price ?? "");
+  const [code, setCode] = useState<string>(initialValues?.code ?? "");
+  const [costPrice, setCostPrice] = useState<string>(initialValues?.cost_price ?? "");
+  const [stock, setStock] = useState<string>(initialValues?.stock ?? "");
 
   const submitLabel = mode === "create" ? "Agregar producto" : "Guardar cambios";
 
-  const handleSubmit = (e: FormEvent<HTMLFormElement>) => {
+  const handleSubmit = (e: SyntheticEvent<HTMLFormElement>) => {
     e.preventDefault();
     const data: ProductCreate | ProductUpdate = {
       name: name.trim() || undefined,
@@ -75,9 +75,8 @@ export function ProductForm({
       <TextField
         id="product-sale-price"
         label="Precio de venta"
-        type="number"
-        step="0.01"
-        min="0.01"
+        type="text"
+        inputMode="decimal"
         value={salePrice}
         onChange={(e) => { setSalePrice(e.target.value); }}
         required
@@ -90,7 +89,7 @@ export function ProductForm({
       <TextField
         id="product-code"
         label="Código SKU"
-        value={code ?? ""}
+        value={code}
         onChange={(e) => { setCode(e.target.value); }}
         disabled={isLoading}
       />
@@ -98,10 +97,9 @@ export function ProductForm({
       <TextField
         id="product-cost-price"
         label="Costo"
-        type="number"
-        step="0.01"
-        min="0"
-        value={costPrice ?? ""}
+        type="text"
+        inputMode="decimal"
+        value={costPrice}
         onChange={(e) => { setCostPrice(e.target.value); }}
         disabled={isLoading}
       />
@@ -109,10 +107,9 @@ export function ProductForm({
       <TextField
         id="product-stock"
         label="Stock"
-        type="number"
-        step="0.01"
-        min="0"
-        value={stock ?? ""}
+        type="text"
+        inputMode="decimal"
+        value={stock}
         onChange={(e) => { setStock(e.target.value); }}
         disabled={isLoading}
       />

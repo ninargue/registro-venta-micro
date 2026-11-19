@@ -15,7 +15,7 @@ export function validateProductCreate(data: Partial<ProductCreate>): FieldErrors
   }
 
   const salePrice = Number(data.sale_price);
-  if (data.sale_price === undefined || data.sale_price === null || data.sale_price === "") {
+  if (data.sale_price === undefined || data.sale_price === "") {
     errors["sale_price"] = "El precio de venta es obligatorio.";
   } else if (isNaN(salePrice) || salePrice <= 0) {
     errors["sale_price"] = "El precio de venta debe ser mayor que cero.";

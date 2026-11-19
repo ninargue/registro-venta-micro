@@ -1,11 +1,4 @@
-import { Button } from "@/shared/ui/Button";
-
-export interface CatalogEmptyStateProps {
-  onAddProduct: () => void;
-  disabled?: boolean;
-}
-
-export function CatalogEmptyState({ onAddProduct, disabled = false }: CatalogEmptyStateProps) {
+export function CatalogEmptyState() {
   return (
     <div
       className="flex flex-col items-center gap-6 py-16 text-center"
@@ -16,13 +9,9 @@ export function CatalogEmptyState({ onAddProduct, disabled = false }: CatalogEmp
           No hay productos en el catálogo
         </p>
         <p className="text-sm text-[var(--color-text-muted-light)] dark:text-[var(--color-text-muted-dark)]">
-          Agrega el primer producto para comenzar.
+          Usa el botón "Agregar producto" para comenzar.
         </p>
       </div>
-
-      <Button variant="primary" onClick={onAddProduct} disabled={disabled}>
-        Agregar producto
-      </Button>
     </div>
   );
 }

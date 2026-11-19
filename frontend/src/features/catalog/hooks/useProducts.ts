@@ -1,10 +1,10 @@
-import { useQuery } from "@tanstack/react-query";
+import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { fetchProducts } from "@/features/catalog/api";
 import type { ProductListParams, ProductListResponse } from "@/features/catalog/types";
 import { db } from "@/lib/db";
 
 export function useProducts(params: ProductListParams) {
-  return useQuery<ProductListResponse, Error>({
+  return useQuery<ProductListResponse>({
     queryKey: ["catalog", "products", params],
     queryFn: async () => {
       const data = await fetchProducts(params);
@@ -16,5 +16,6 @@ export function useProducts(params: ProductListParams) {
       }
       return data;
     },
+    placeholderData: keepPreviousData,
   });
 }

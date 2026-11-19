@@ -11,7 +11,7 @@ export function ProductSearchBar({ value, onChange, disabled = false }: ProductS
     <TextField
       id="catalog-search"
       label="Buscar producto"
-      type="search"
+      type="text"
       value={value}
       onChange={(e) => { onChange(e.target.value); }}
       placeholder="Buscar por nombre o SKU..."

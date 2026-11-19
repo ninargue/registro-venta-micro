@@ -43,7 +43,8 @@ export function ProductCard({ product, onEdit, disabled = false }: ProductCardPr
             className="text-sm"
             style={{ color: hasStock ? "var(--color-success)" : "var(--color-error)" }}
           >
-            Stock: {product.stock}
+            <span className="sr-only">Stock: </span>
+            {product.stock}
           </span>
         </div>
 
