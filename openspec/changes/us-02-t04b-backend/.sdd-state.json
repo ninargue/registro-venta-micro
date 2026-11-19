@@ -1,0 +1,12 @@
+{
+  "schema_version": 1,
+  "layer": "backend",
+  "max_repeat": 2,
+  "attempt": 0,
+  "consecutive_same_signature": 0,
+  "last_signature": null,
+  "loop_detected": false,
+  "promoted": false,
+  "errors": [],
+  "pending_dispatches": []
+}
