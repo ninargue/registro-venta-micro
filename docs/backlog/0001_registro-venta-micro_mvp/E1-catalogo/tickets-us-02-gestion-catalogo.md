@@ -32,7 +32,7 @@
 - **Issue GitHub:** [#44](https://github.com/ninargue/registro-venta-micro/issues/44)
 - **Alcance / Capa:** Frontend (`frontend/src/app`)
 - **Talla:** `M` | **Riesgo:** Bajo
-- **Dependencias:** `TICKET-04`
+- **Dependencias:** `TICKET-04`, `TICKET-02`
 - **Descripción:** Crear componente de catálogo en la PWA para listar y registrar productos con buscador reactivo y visualización de stock.
 - **Definición de Terminado (DoD):**
   - [ ] Grilla táctil / lista de productos con nombre, precio y stock.
