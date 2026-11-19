@@ -348,4 +348,26 @@ describe("Onboarding modal (Design-Blind)", () => {
     expect(logoutCalls).toBe(1);
     expect(localStorage.getItem("rvm.auth.context")).toBeNull();
   });
+
+  it("mantiene el foco atrapado dentro del modal de onboarding al navegar con Tab y Shift+Tab", async () => {
+    const user = userEvent.setup();
+    mockAuthenticatedOnboardingRequired();
+    renderApp(["/"]);
+
+    const nameInput = await screen.findByLabelText(/Nombre del negocio/i);
+    await waitFor(() => {
+      expect(nameInput).toHaveFocus();
+    });
+
+    // Shift+Tab desde el primer control debe envolver hacia el último botón del diálogo
+    await user.tab({ shift: true });
+    const logoutButton = within(screen.getByRole("dialog")).getByRole("button", {
+      name: "Cerrar sesión",
+    });
+    expect(logoutButton).toHaveFocus();
+
+    // Tab desde el último botón debe envolver al primer control del diálogo
+    await user.tab();
+    expect(nameInput).toHaveFocus();
+  });
 });

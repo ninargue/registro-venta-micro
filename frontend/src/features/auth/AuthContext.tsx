@@ -1,5 +1,5 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { createContext, useCallback, useContext, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useState } from "react";
 import type { ReactNode } from "react";
 import {
   fetchMeWithRefresh,
@@ -19,7 +19,7 @@ import type {
   OnboardingRequest,
   PublicAuthContext,
 } from "@/features/auth/types";
-import { ApiError, ApiNetworkError } from "@/lib/api-client";
+import { ApiError, ApiNetworkError, setOnSessionRefreshed } from "@/lib/api-client";
 
 export const AUTH_SESSION_QUERY_KEY = ["auth", "session"] as const;
 
@@ -47,7 +47,9 @@ function toPublicAuthContext(response: LoginResponse): PublicAuthContext {
   };
 }
 
-async function resolveSessionFromServer(): Promise<PublicAuthContext | null> {
+async function resolveSessionFromServer(
+  onTransientError?: (message: string) => void,
+): Promise<PublicAuthContext | null> {
   try {
     const response = await fetchMeWithRefresh();
     const ctx = toPublicAuthContext(response);
@@ -58,10 +60,18 @@ async function resolveSessionFromServer(): Promise<PublicAuthContext | null> {
       clearPublicAuthContext();
       return null;
     }
-    if (error instanceof ApiNetworkError) {
+    const isTransient =
+      error instanceof ApiNetworkError ||
+      (error instanceof ApiError && (error.status >= 500 || error.status === 429));
+    if (isTransient) {
       const cached = readPublicAuthContext();
       if (cached && !cached.requires_onboarding) {
         return cached;
+      }
+      if (error instanceof ApiError) {
+        onTransientError?.(
+          "El servicio de autenticación no está disponible temporalmente. Intenta nuevamente.",
+        );
       }
     }
     return null;
@@ -72,9 +82,20 @@ export function AuthSessionProvider({ children }: { children: ReactNode }) {
   const queryClient = useQueryClient();
   const [sessionAlert, setSessionAlert] = useState<string | null>(null);
 
+  useEffect(() => {
+    setOnSessionRefreshed((response) => {
+      const ctx = toPublicAuthContext(response);
+      writePublicAuthContext(ctx);
+      queryClient.setQueryData(AUTH_SESSION_QUERY_KEY, ctx);
+    });
+    return () => {
+      setOnSessionRefreshed(null);
+    };
+  }, [queryClient]);
+
   const sessionQuery = useQuery<PublicAuthContext | null>({
     queryKey: AUTH_SESSION_QUERY_KEY,
-    queryFn: resolveSessionFromServer,
+    queryFn: () => resolveSessionFromServer(setSessionAlert),
     retry: false,
     refetchOnWindowFocus: false,
   });
@@ -154,6 +175,8 @@ export function AuthSessionProvider({ children }: { children: ReactNode }) {
   const logout = useCallback(async () => {
     try {
       await logoutRequest();
+    } catch {
+      // Si falla la red o el backend, completamos igualmente la limpieza local de sesión
     } finally {
       clearPublicAuthContext();
       queryClient.setQueryData(AUTH_SESSION_QUERY_KEY, null);
@@ -162,7 +185,7 @@ export function AuthSessionProvider({ children }: { children: ReactNode }) {
   }, [queryClient]);
 
   const rehydrateSession = useCallback(async (): Promise<PublicAuthContext | null> => {
-    const ctx = await resolveSessionFromServer();
+    const ctx = await resolveSessionFromServer(setSessionAlert);
     queryClient.setQueryData(AUTH_SESSION_QUERY_KEY, ctx);
     return ctx;
   }, [queryClient]);

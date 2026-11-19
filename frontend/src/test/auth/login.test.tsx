@@ -208,7 +208,7 @@ describe("Login screen (Design-Blind)", () => {
     expect(
       screen.getByRole("heading", { level: 2, name: "¡Bienvenido! Configura tu comercio" }),
     ).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Cerrar sesión" })).not.toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: "Cerrar sesión" })).toBeInTheDocument();
   });
 
   it("muestra alerta accesible ante 401 INVALID_CREDENTIALS sin guardar sesión", async () => {

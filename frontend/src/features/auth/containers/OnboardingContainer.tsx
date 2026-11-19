@@ -43,12 +43,18 @@ export function OnboardingContainer({ allowLogout = true }: OnboardingContainerP
     if (fieldErrors.name) {
       setFieldErrors((prev) => ({ ...prev, name: false }));
     }
+    if (errorMessage) {
+      setErrorMessage(null);
+    }
   };
 
   const handleCountryChange = (value: string) => {
     setCountry(value);
     if (fieldErrors.country) {
       setFieldErrors((prev) => ({ ...prev, country: false }));
+    }
+    if (errorMessage) {
+      setErrorMessage(null);
     }
   };
 

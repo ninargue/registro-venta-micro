@@ -240,4 +240,53 @@ describe("Session management, HttpOnly cookies, route guards, and logout", () =>
     expect(screen.getByText(DEFAULT_TEST_BUSINESS.name)).toBeInTheDocument();
     expect(JSON.parse(localStorage.getItem("rvm.auth.context") ?? "{}")).toEqual(cachedContext);
   });
+
+  it("preserva contexto público ante 503 transitorio en GET /api/v1/auth/me", async () => {
+    const cachedContext = {
+      user: DEFAULT_TEST_USER,
+      requires_onboarding: false,
+      business: DEFAULT_TEST_BUSINESS,
+    };
+    localStorage.setItem("rvm.auth.context", JSON.stringify(cachedContext));
+
+    server.use(
+      http.get("/api/v1/auth/me", () => {
+        return HttpResponse.json(
+          { code: "SERVICE_UNAVAILABLE", message: "Temporalmente caído", details: null },
+          { status: 503 },
+        );
+      }),
+    );
+
+    const { router } = renderApp(["/"]);
+
+    expect(await screen.findByRole("button", { name: "Cerrar sesión" })).toBeInTheDocument();
+    expect(router.state.location.pathname).toBe("/");
+    expect(screen.getByText(DEFAULT_TEST_BUSINESS.name)).toBeInTheDocument();
+  });
+
+  it("limpia contexto local y redirige a /login aunque POST /api/v1/auth/logout falle por red", async () => {
+    const user = userEvent.setup();
+    server.use(
+      http.get("/api/v1/auth/me", () => {
+        return HttpResponse.json({
+          user: DEFAULT_TEST_USER,
+          requires_onboarding: false,
+          business: DEFAULT_TEST_BUSINESS,
+        });
+      }),
+      http.post("/api/v1/auth/logout", () => {
+        return HttpResponse.error();
+      }),
+    );
+
+    const { router } = renderApp(["/"]);
+    const logoutButton = await screen.findByRole("button", { name: "Cerrar sesión" });
+    await user.click(logoutButton);
+
+    await waitFor(() => {
+      expect(router.state.location.pathname).toBe("/login");
+    });
+    expect(localStorage.getItem("rvm.auth.context")).toBeNull();
+  });
 });

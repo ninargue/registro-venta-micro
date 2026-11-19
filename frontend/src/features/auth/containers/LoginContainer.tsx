@@ -57,12 +57,18 @@ export function LoginContainer() {
     if (fieldErrors.email) {
       setFieldErrors((prev) => ({ ...prev, email: false }));
     }
+    if (errorMessage) {
+      setErrorMessage(null);
+    }
   };
 
   const handlePasswordChange = (value: string) => {
     setPassword(value);
     if (fieldErrors.password) {
       setFieldErrors((prev) => ({ ...prev, password: false }));
+    }
+    if (errorMessage) {
+      setErrorMessage(null);
     }
   };
 
@@ -120,7 +126,7 @@ export function LoginContainer() {
       />
       {status === "onboarding_required" ? (
         <Suspense fallback={null}>
-          <LazyOnboardingContainer allowLogout={false} />
+          <LazyOnboardingContainer allowLogout />
         </Suspense>
       ) : null}
     </>

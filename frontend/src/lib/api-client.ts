@@ -26,6 +26,11 @@ export interface ApiFetchOptions extends RequestInit {
 }
 
 let refreshInFlight: Promise<LoginResponse> | null = null;
+let onSessionRefreshed: ((response: LoginResponse) => void) | null = null;
+
+export function setOnSessionRefreshed(listener: ((response: LoginResponse) => void) | null): void {
+  onSessionRefreshed = listener;
+}
 
 async function parseErrorResponse(response: Response): Promise<ErrorResponse> {
   try {
@@ -86,7 +91,9 @@ export async function refreshSessionOnce(): Promise<LoginResponse> {
       throw new ApiError(response.status, errorBody);
     }
 
-    return (await response.json()) as LoginResponse;
+    const refreshed = (await response.json()) as LoginResponse;
+    onSessionRefreshed?.(refreshed);
+    return refreshed;
   })();
 
   try {

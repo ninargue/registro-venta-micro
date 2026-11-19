@@ -45,11 +45,21 @@ export function OnboardingModal({
   isLoggingOut = false,
 }: OnboardingModalProps) {
   const internalNameRef = useRef<HTMLInputElement | null>(null);
+  const dialogRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
-    if (isOpen) {
-      internalNameRef.current?.focus();
+    if (!isOpen) {
+      return;
     }
+    const previouslyFocused =
+      document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    internalNameRef.current?.focus();
+
+    return () => {
+      if (previouslyFocused && document.contains(previouslyFocused)) {
+        previouslyFocused.focus();
+      }
+    };
   }, [isOpen]);
 
   if (!isOpen) {
@@ -60,6 +70,30 @@ export function OnboardingModal({
     if (event.key === "Escape") {
       event.preventDefault();
       event.stopPropagation();
+      return;
+    }
+
+    if (event.key === "Tab" && dialogRef.current) {
+      const focusable = Array.from(
+        dialogRef.current.querySelectorAll<HTMLElement>(
+          'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
+        ),
+      );
+      if (focusable.length === 0) {
+        return;
+      }
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (!first || !last) {
+        return;
+      }
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
     }
   };
 
@@ -71,6 +105,7 @@ export function OnboardingModal({
       onKeyDown={handleKeyDown}
     >
       <div
+        ref={dialogRef}
         role="dialog"
         aria-modal="true"
         aria-labelledby="onboarding-heading"
