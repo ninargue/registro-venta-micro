@@ -375,20 +375,40 @@ async def test_sales_rejects_orphan_business_and_cascades_on_business_delete(
     async with db_session.begin() as tx:
         try:
             await _insert_business(db_session, business_id, "Comercio Cascade")
-            await _insert_sale(db_session, business_id=business_id, total_amount=Decimal("10.00"))
+            pid = await _insert_product(db_session, business_id=business_id, name="Prod Cascade")
+            s1 = await _insert_sale(
+                db_session, business_id=business_id, total_amount=Decimal("10.00")
+            )
             await _insert_sale(db_session, business_id=business_id, total_amount=Decimal("20.00"))
+            await _insert_sale_item(
+                db_session,
+                business_id=business_id,
+                sale_id=s1,
+                product_id=pid,
+                quantity=Decimal("1.00"),
+                unit_price=Decimal("10.00"),
+                unit_cost=Decimal("5.00"),
+            )
+            await _insert_payment(
+                db_session,
+                business_id=business_id,
+                sale_id=s1,
+                payment_method="cash",
+                amount=Decimal("10.00"),
+            )
 
             await db_session.execute(
                 text("DELETE FROM businesses WHERE id = :id"),
                 {"id": business_id},
             )
-            remaining = (
-                await db_session.execute(
-                    text("SELECT count(*) FROM sales WHERE business_id = :b_id"),
-                    {"b_id": business_id},
-                )
-            ).scalar_one()
-            assert remaining == 0
+            for table_name in ("sales", "sale_items", "payments"):
+                remaining = (
+                    await db_session.execute(
+                        text(f"SELECT count(*) FROM {table_name} WHERE business_id = :b_id"),
+                        {"b_id": business_id},
+                    )
+                ).scalar_one()
+                assert remaining == 0, f"{table_name} rows should cascade on business delete"
         finally:
             await tx.rollback()
 
@@ -1459,5 +1479,232 @@ async def test_authenticated_and_anon_cannot_access_or_truncate_sales_tables(
                     _assert_sqlstate(exc_info.value, "42501")
 
                 await db_session.execute(text("RESET ROLE;"))
+        finally:
+            await tx.rollback()
+
+
+@pytest.mark.asyncio
+async def test_sales_tables_reject_duplicate_primary_keys(
+    db_session: AsyncSession,
+) -> None:
+    business_id = str(uuid.uuid4())
+    sale_id = str(uuid.uuid4())
+    item_id = str(uuid.uuid4())
+    payment_id = str(uuid.uuid4())
+    async with db_session.begin() as tx:
+        try:
+            await _insert_business(db_session, business_id, "Comercio PKs")
+            pid = await _insert_product(db_session, business_id=business_id, name="Prod PK")
+            await _insert_sale(
+                db_session,
+                business_id=business_id,
+                client_id=str(uuid.uuid4()),
+                sale_id=sale_id,
+            )
+            await _insert_sale_item(
+                db_session,
+                business_id=business_id,
+                sale_id=sale_id,
+                product_id=pid,
+                item_id=item_id,
+            )
+            await _insert_payment(
+                db_session,
+                business_id=business_id,
+                sale_id=sale_id,
+                payment_id=payment_id,
+            )
+
+            with pytest.raises(IntegrityError) as exc_sale_pk:
+                async with db_session.begin_nested():
+                    await _insert_sale(
+                        db_session,
+                        business_id=business_id,
+                        client_id=str(uuid.uuid4()),
+                        sale_id=sale_id,
+                    )
+            _assert_sqlstate(exc_sale_pk.value, "23505")
+
+            with pytest.raises(IntegrityError) as exc_item_pk:
+                async with db_session.begin_nested():
+                    await _insert_sale_item(
+                        db_session,
+                        business_id=business_id,
+                        sale_id=sale_id,
+                        product_id=pid,
+                        item_id=item_id,
+                    )
+            _assert_sqlstate(exc_item_pk.value, "23505")
+
+            with pytest.raises(IntegrityError) as exc_payment_pk:
+                async with db_session.begin_nested():
+                    await _insert_payment(
+                        db_session,
+                        business_id=business_id,
+                        sale_id=sale_id,
+                        payment_id=payment_id,
+                    )
+            _assert_sqlstate(exc_payment_pk.value, "23505")
+        finally:
+            await tx.rollback()
+
+
+@pytest.mark.asyncio
+async def test_sale_items_and_payments_valid_with_defaults(
+    db_session: AsyncSession,
+) -> None:
+    business_id = str(uuid.uuid4())
+    async with db_session.begin() as tx:
+        try:
+            await _insert_business(db_session, business_id, "Comercio Defaults")
+            pid = await _insert_product(db_session, business_id=business_id, name="Prod Defaults")
+            sid = await _insert_sale(db_session, business_id=business_id)
+
+            item_row = (
+                (
+                    await db_session.execute(
+                        text(
+                            """
+                            INSERT INTO sale_items (
+                                business_id, sale_id, product_id, quantity, unit_price, unit_cost
+                            )
+                            VALUES (
+                                :business_id, :sale_id, :product_id, 2.00, 50.00, 25.00
+                            )
+                            RETURNING id, created_at
+                            """
+                        ),
+                        {"business_id": business_id, "sale_id": sid, "product_id": pid},
+                    )
+                )
+                .mappings()
+                .one()
+            )
+            assert uuid.UUID(str(item_row["id"]))
+            assert item_row["created_at"] is not None
+
+            payment_row = (
+                (
+                    await db_session.execute(
+                        text(
+                            """
+                            INSERT INTO payments (business_id, sale_id, payment_method, amount)
+                            VALUES (:business_id, :sale_id, 'cash', 100.00)
+                            RETURNING id, created_at
+                            """
+                        ),
+                        {"business_id": business_id, "sale_id": sid},
+                    )
+                )
+                .mappings()
+                .one()
+            )
+            assert uuid.UUID(str(payment_row["id"]))
+            assert payment_row["created_at"] is not None
+        finally:
+            await tx.rollback()
+
+
+@pytest.mark.asyncio
+async def test_sales_tables_explicit_btree_indexes_exist_with_expected_columns(
+    db_session: AsyncSession,
+) -> None:
+    expected_indexes = {
+        "ix_sales_business_id_created_at": ("sales", "btree", ["business_id", "created_at"]),
+        "ix_sale_items_business_id_sale_id": ("sale_items", "btree", ["business_id", "sale_id"]),
+        "ix_sale_items_business_id_product_id": (
+            "sale_items",
+            "btree",
+            ["business_id", "product_id"],
+        ),
+        "ix_payments_business_id_sale_id": ("payments", "btree", ["business_id", "sale_id"]),
+    }
+    async with db_session.begin() as tx:
+        try:
+            rows = (
+                (
+                    await db_session.execute(
+                        text(
+                            """
+                            SELECT
+                                i.relname AS index_name,
+                                t.relname AS table_name,
+                                am.amname AS access_method,
+                                array_agg(a.attname::text ORDER BY u.ord) AS columns
+                            FROM pg_index ix
+                            JOIN pg_class t ON t.oid = ix.indrelid
+                            JOIN pg_namespace n ON n.oid = t.relnamespace
+                            JOIN pg_class i ON i.oid = ix.indexrelid
+                            JOIN pg_am am ON am.oid = i.relam
+                            CROSS JOIN LATERAL unnest(ix.indkey) WITH ORDINALITY AS u(attnum, ord)
+                            JOIN pg_attribute a ON a.attrelid = t.oid AND a.attnum = u.attnum
+                            WHERE n.nspname = 'public'
+                              AND i.relname = ANY(:index_names)
+                            GROUP BY i.relname, t.relname, am.amname
+                            """
+                        ),
+                        {"index_names": list(expected_indexes.keys())},
+                    )
+                )
+                .mappings()
+                .all()
+            )
+            actual = {
+                row["index_name"]: (
+                    row["table_name"],
+                    row["access_method"],
+                    list(row["columns"]),
+                )
+                for row in rows
+            }
+            assert actual == expected_indexes
+        finally:
+            await tx.rollback()
+
+
+@pytest.mark.asyncio
+async def test_sales_tables_business_fk_cascade_metadata(
+    db_session: AsyncSession,
+) -> None:
+    expected_fks = {
+        "fk_sale_items_business_id": ("sale_items", "businesses", "c"),
+        "fk_payments_business_id": ("payments", "businesses", "c"),
+    }
+    async with db_session.begin() as tx:
+        try:
+            rows = (
+                (
+                    await db_session.execute(
+                        text(
+                            """
+                            SELECT
+                                con.conname AS constraint_name,
+                                rel.relname AS table_name,
+                                frel.relname AS referenced_table,
+                                con.confdeltype::text AS delete_action
+                            FROM pg_constraint con
+                            JOIN pg_class rel ON rel.oid = con.conrelid
+                            JOIN pg_namespace n ON n.oid = rel.relnamespace
+                            JOIN pg_class frel ON frel.oid = con.confrelid
+                            WHERE n.nspname = 'public'
+                              AND con.contype = 'f'
+                              AND con.conname = ANY(:fk_names)
+                            """
+                        ),
+                        {"fk_names": list(expected_fks.keys())},
+                    )
+                )
+                .mappings()
+                .all()
+            )
+            actual = {
+                row["constraint_name"]: (
+                    row["table_name"],
+                    row["referenced_table"],
+                    row["delete_action"],
+                )
+                for row in rows
+            }
+            assert actual == expected_fks
         finally:
             await tx.rollback()
