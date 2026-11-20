@@ -140,6 +140,8 @@ async def _cleanup_businesses(db_session: AsyncSession, business_ids: list[str])
         return
     async with db_session.begin():
         for b_id in business_ids:
+            # businesses_tenant_isolation USING clause requires current_business_id = id
+            await db_session.execute(text(f"SET LOCAL app.current_business_id = '{b_id}';"))
             await db_session.execute(
                 text("DELETE FROM businesses WHERE id = :id"),
                 {"id": b_id},
@@ -270,6 +272,10 @@ async def test_create_sale_single_payment_and_frozen_snapshots(
 
         # Update product price and cost after sale, then verify frozen snapshot in DB
         async with db_session.begin():
+            # All policies require current_business_id to be set for reads/writes
+            await db_session.execute(
+                text(f"SET LOCAL app.current_business_id = '{business_id}';")
+            )
             await db_session.execute(
                 text(
                     """
@@ -402,6 +408,9 @@ async def test_create_sale_combined_payments_exact_decimal_sum(
         assert lock_params.index(id_low) < lock_params.index(id_high)
 
         async with db_session.begin():
+            await db_session.execute(
+                text(f"SET LOCAL app.current_business_id = '{business_id}';")
+            )
             rows = (
                 (
                     await db_session.execute(
@@ -500,6 +509,9 @@ async def test_fractional_quantity_rounding_and_duplicate_product_lines(
         assert resp_dup.json()["total_amount"] == "300.99"
 
         async with db_session.begin():
+            await db_session.execute(
+                text(f"SET LOCAL app.current_business_id = '{business_id}';")
+            )
             stock_val = (
                 await db_session.execute(
                     text("SELECT stock FROM products WHERE id = :pid"),
@@ -566,6 +578,9 @@ async def test_counter_sale_succeeds_when_stock_becomes_negative(
         assert resp2.status_code == 201
 
         async with db_session.begin():
+            await db_session.execute(
+                text(f"SET LOCAL app.current_business_id = '{business_id}';")
+            )
             rows = (
                 (
                     await db_session.execute(
@@ -621,6 +636,9 @@ async def test_transactional_rollback_on_mid_transaction_failure(
         assert response.status_code == 500
 
         async with db_session.begin():
+            await db_session.execute(
+                text(f"SET LOCAL app.current_business_id = '{business_id}';")
+            )
             stock_val = (
                 await db_session.execute(
                     text("SELECT stock FROM products WHERE id = :pid"),
@@ -714,6 +732,9 @@ async def test_sequential_idempotent_retry_returns_200_even_after_catalog_change
             # Edit price and deactivate products after original sale
             async with db_session.begin():
                 await db_session.execute(
+                    text(f"SET LOCAL app.current_business_id = '{business_id}';")
+                )
+                await db_session.execute(
                     text(
                         """
                         UPDATE products
@@ -742,6 +763,9 @@ async def test_sequential_idempotent_retry_returns_200_even_after_catalog_change
             )
 
         async with db_session.begin():
+            await db_session.execute(
+                text(f"SET LOCAL app.current_business_id = '{business_id}';")
+            )
             sales_count = (
                 await db_session.execute(
                     text(
@@ -810,6 +834,9 @@ async def test_concurrent_idempotent_retries_deduct_stock_once(
         assert r1.json() == r2.json()
 
         async with db_session.begin():
+            await db_session.execute(
+                text(f"SET LOCAL app.current_business_id = '{business_id}';")
+            )
             sales_count = (
                 await db_session.execute(
                     text(
@@ -941,6 +968,9 @@ async def test_reject_payment_total_mismatch(
         }
 
         async with db_session.begin():
+            await db_session.execute(
+                text(f"SET LOCAL app.current_business_id = '{business_id}';")
+            )
             stock_val = (
                 await db_session.execute(
                     text("SELECT stock FROM products WHERE id = :pid"),
@@ -998,6 +1028,9 @@ async def test_reject_inactive_product_for_new_sale(
         assert inactive_body["details"] == {"inactive_product_ids": [product_id]}
 
         async with db_session.begin():
+            await db_session.execute(
+                text(f"SET LOCAL app.current_business_id = '{business_id}';")
+            )
             stock_val = (
                 await db_session.execute(
                     text("SELECT stock FROM products WHERE id = :pid"),
@@ -1400,6 +1433,10 @@ async def test_cross_tenant_or_missing_product_rejected_404_and_body_business_id
         created_sale_id = valid_with_spoofed_business.json()["id"]
 
         async with db_session.begin():
+            # prod_b belongs to business_b, so read it under business_b context
+            await db_session.execute(
+                text(f"SET LOCAL app.current_business_id = '{business_b}';")
+            )
             stock_b = (
                 await db_session.execute(
                     text("SELECT stock FROM products WHERE id = :pid"),
@@ -1408,6 +1445,10 @@ async def test_cross_tenant_or_missing_product_rejected_404_and_body_business_id
             ).scalar_one()
             assert stock_b == Decimal("10.00")
 
+            # sale belongs to business_a, switch context
+            await db_session.execute(
+                text(f"SET LOCAL app.current_business_id = '{business_a}';")
+            )
             sale_biz = (
                 await db_session.execute(
                     text("SELECT business_id FROM sales WHERE id = :sid"),
@@ -1573,6 +1614,9 @@ async def test_concurrent_crossed_order_sales_no_deadlocks_or_lost_updates(
         assert r2.status_code == 201
 
         async with db_session.begin():
+            await db_session.execute(
+                text(f"SET LOCAL app.current_business_id = '{business_id}';")
+            )
             rows = (
                 (
                     await db_session.execute(
@@ -1644,6 +1688,11 @@ async def test_concurrent_retry_returns_200_when_catalog_changes_before_for_upda
         async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
             # Hold FOR UPDATE lock in another transaction while the retry passes early lookup
             async with session_factory() as lock_session, lock_session.begin():
+                # products_select_isolation requires current_business_id to match;
+                # without this GUC the FOR UPDATE returns no rows and no lock is held.
+                await lock_session.execute(
+                    text(f"SET LOCAL app.current_business_id = '{business_id}';")
+                )
                 await lock_session.execute(
                     text("SELECT id FROM products WHERE id = :pid FOR UPDATE"),
                     {"pid": product_id},
@@ -1833,6 +1882,9 @@ async def test_reject_stock_numeric_12_2_overflow_and_allow_min_boundary(
         assert resp_deduction_max.status_code == 201
 
         async with db_session.begin():
+            await db_session.execute(
+                text(f"SET LOCAL app.current_business_id = '{business_id}';")
+            )
             rows = (
                 (
                     await db_session.execute(
@@ -1937,6 +1989,9 @@ async def test_reuse_client_id_with_different_payload_returns_409_conflict(
                 assert body["details"] == {"client_id": client_id}
 
         async with db_session.begin():
+            await db_session.execute(
+                text(f"SET LOCAL app.current_business_id = '{business_id}';")
+            )
             rows = (
                 (
                     await db_session.execute(
@@ -2144,6 +2199,9 @@ async def test_items_and_payments_batch_limits_and_zero_unit_cost(
         _assert_uniform_error_response(resp_21_payments, 422, "VALIDATION_ERROR")
 
         async with db_session.begin():
+            await db_session.execute(
+                text(f"SET LOCAL app.current_business_id = '{business_id}';")
+            )
             unit_cost = (
                 await db_session.execute(
                     text("SELECT unit_cost FROM sale_items WHERE sale_id = :sid LIMIT 1"),
