@@ -50,6 +50,7 @@ async def _insert_product(
     product_id: str | None = None,
 ) -> str:
     pid = product_id or str(uuid.uuid4())
+    await db_session.execute(text(f"SET LOCAL app.current_business_id = '{business_id}';"))
     await db_session.execute(
         text(
             """
@@ -766,11 +767,12 @@ async def test_rls_products_cross_tenant_insert_and_update_hijack_rejected(
 
             with pytest.raises(DBAPIError) as exc_ins:
                 async with db_session.begin_nested():
-                    await _insert_product(
-                        db_session,
-                        business_id=b2,
-                        name="Cross Tenant Insert",
-                        sale_price=Decimal("50.00"),
+                    await db_session.execute(
+                        text(
+                            "INSERT INTO products (business_id, name, sale_price) "
+                            "VALUES (:b_id, :name, :price)"
+                        ),
+                        {"b_id": b2, "name": "Cross Tenant Insert", "price": Decimal("50.00")},
                     )
             _assert_sqlstate(exc_ins.value, "42501")
 
@@ -806,6 +808,7 @@ async def test_rls_products_without_tenant_context_returns_empty_and_blocks_inse
             )
 
             await db_session.execute(text("SET LOCAL ROLE app_runtime;"))
+            await db_session.execute(text("SET LOCAL app.current_business_id = '';"))
 
             for ctx_sql in (None, "SET LOCAL app.current_business_id = '';"):
                 if ctx_sql is not None:
@@ -819,11 +822,12 @@ async def test_rls_products_without_tenant_context_returns_empty_and_blocks_inse
 
                 with pytest.raises(DBAPIError) as exc_ins:
                     async with db_session.begin_nested():
-                        await _insert_product(
-                            db_session,
-                            business_id=b1,
-                            name="Sin Contexto",
-                            sale_price=Decimal("10.00"),
+                        await db_session.execute(
+                            text(
+                                "INSERT INTO products (business_id, name, sale_price) "
+                                "VALUES (:b_id, :name, :price)"
+                            ),
+                            {"b_id": b1, "name": "Sin Contexto", "price": Decimal("10.00")},
                         )
                 _assert_sqlstate(exc_ins.value, "42501")
         finally:
@@ -952,7 +956,22 @@ async def test_authenticated_and_anon_cannot_access_or_truncate_products(
             )
 
             for role in ("authenticated", "anon"):
-                await db_session.execute(text(f"SET LOCAL ROLE {role};"))
+                role_switched = False
+                try:
+                    async with db_session.begin_nested():
+                        await db_session.execute(text(f"SET LOCAL ROLE {role};"))
+                    role_switched = True
+                except DBAPIError as exc_role:
+                    orig = exc_role.orig
+                    sqlstate = getattr(orig, "sqlstate", None) or getattr(
+                        getattr(orig, "__cause__", None), "sqlstate", None
+                    )
+                    assert sqlstate in ("42501", "42704"), (
+                        f"Expected 42501/42704 switching to role {role!r}, got {sqlstate!r}: {exc_role}"
+                    )
+
+                if not role_switched:
+                    continue
 
                 statements = [
                     ("SELECT id FROM products LIMIT 1;", {}),

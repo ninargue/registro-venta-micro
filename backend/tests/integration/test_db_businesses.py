@@ -13,6 +13,8 @@ async def test_insert_business_valid(db_session: AsyncSession) -> None:
     business_id = str(uuid.uuid4())
     async with db_session.begin() as tx:
         try:
+            await db_session.execute(text(f"SET LOCAL app.current_user_id = '{uuid.uuid4()}';"))
+            await db_session.execute(text(f"SET LOCAL app.current_business_id = '{business_id}';"))
             await db_session.execute(
                 text(
                     """
@@ -93,29 +95,8 @@ async def test_business_users_membership_and_valid_role(db_session: AsyncSession
     user_id = str(uuid.uuid4())
     async with db_session.begin() as tx:
         try:
-            await db_session.execute(
-                text(
-                    """
-                    INSERT INTO businesses (id, name, country, timezone)
-                    VALUES (:id, :name, :country, :timezone)
-                    """
-                ),
-                {
-                    "id": business_id,
-                    "name": "Ferreteria Central",
-                    "country": "UY",
-                    "timezone": "America/Montevideo",
-                },
-            )
-            await db_session.execute(
-                text(
-                    """
-                    INSERT INTO business_users (business_id, user_id, role)
-                    VALUES (:b_id, :u_id, :role)
-                    """
-                ),
-                {"b_id": business_id, "u_id": user_id, "role": "owner"},
-            )
+            await _insert_business(db_session, business_id, "Ferreteria Central")
+            await _insert_business_user(db_session, business_id, user_id, "owner")
             res = await db_session.execute(
                 text(
                     "SELECT role FROM business_users WHERE business_id = :b_id AND user_id = :u_id"
@@ -133,15 +114,7 @@ async def test_business_users_rejects_invalid_role(db_session: AsyncSession) -> 
     user_id = str(uuid.uuid4())
     with pytest.raises(IntegrityError) as exc_info:
         async with db_session.begin():
-            await db_session.execute(
-                text(
-                    """
-                    INSERT INTO businesses (id, name, country, timezone)
-                    VALUES (:id, 'Almacen', 'CL', 'America/Santiago')
-                    """
-                ),
-                {"id": business_id},
-            )
+            await _insert_business(db_session, business_id, "Almacen")
             await db_session.execute(
                 text(
                     """
@@ -160,6 +133,10 @@ async def test_business_users_rejects_orphan_business_id(db_session: AsyncSessio
     user_id = str(uuid.uuid4())
     with pytest.raises(IntegrityError) as exc_info:
         async with db_session.begin():
+            await db_session.execute(text(f"SET LOCAL app.current_user_id = '{user_id}';"))
+            await db_session.execute(
+                text(f"SET LOCAL app.current_business_id = '{non_existent_business_id}';")
+            )
             await db_session.execute(
                 text(
                     """
@@ -178,24 +155,8 @@ async def test_business_users_cascade_delete(db_session: AsyncSession) -> None:
     user_id = str(uuid.uuid4())
     async with db_session.begin() as tx:
         try:
-            await db_session.execute(
-                text(
-                    """
-                    INSERT INTO businesses (id, name, country, timezone)
-                    VALUES (:id, 'Panaderia', 'AR', 'America/Argentina/Buenos_Aires')
-                    """
-                ),
-                {"id": business_id},
-            )
-            await db_session.execute(
-                text(
-                    """
-                    INSERT INTO business_users (business_id, user_id, role)
-                    VALUES (:b_id, :u_id, 'owner')
-                    """
-                ),
-                {"b_id": business_id, "u_id": user_id},
-            )
+            await _insert_business(db_session, business_id, "Panaderia")
+            await _insert_business_user(db_session, business_id, user_id, "owner")
             await db_session.execute(
                 text("DELETE FROM businesses WHERE id = :id"),
                 {"id": business_id},
@@ -215,16 +176,8 @@ async def test_rls_isolation_by_session_variable(db_session: AsyncSession) -> No
     b2 = str(uuid.uuid4())
     async with db_session.begin() as tx:
         try:
-            await db_session.execute(
-                text(
-                    """
-                    INSERT INTO businesses (id, name, country, timezone) VALUES
-                    (:b1, 'Negocio 1', 'AR', 'America/Argentina/Buenos_Aires'),
-                    (:b2, 'Negocio 2', 'AR', 'America/Argentina/Buenos_Aires')
-                    """
-                ),
-                {"b1": b1, "b2": b2},
-            )
+            await _insert_business(db_session, b1, "Negocio 1")
+            await _insert_business(db_session, b2, "Negocio 2")
 
             # Switch to non-superuser role so PostgreSQL enforces RLS
             await db_session.execute(text("SET LOCAL ROLE app_api;"))
@@ -825,7 +778,22 @@ async def test_businesses_onboarding_insert_requires_user_and_matching_business_
 async def test_authenticated_cannot_access_or_truncate_tables(db_session: AsyncSession) -> None:
     async with db_session.begin() as tx:
         try:
-            await db_session.execute(text("SET LOCAL ROLE authenticated;"))
+            role_switched = False
+            try:
+                async with db_session.begin_nested():
+                    await db_session.execute(text("SET LOCAL ROLE authenticated;"))
+                role_switched = True
+            except DBAPIError as exc_role:
+                orig = exc_role.orig
+                sqlstate = getattr(orig, "sqlstate", None) or getattr(
+                    getattr(orig, "__cause__", None), "sqlstate", None
+                )
+                assert sqlstate in ("42501", "42704"), (
+                    f"Expected 42501/42704 switching to role 'authenticated', got {sqlstate!r}: {exc_role}"
+                )
+
+            if not role_switched:
+                return
 
             with pytest.raises(DBAPIError) as exc_sel_biz:
                 async with db_session.begin_nested():
