@@ -131,6 +131,7 @@ make setup     # docker up → inyecta claves → alembic upgrade head → seed
 # 3. Levantar los servidores (dos terminales)
 make backend-dev   # API en http://localhost:8000/docs
 make frontend-dev  # PWA en http://localhost:5174
+                   # Inicia sesión con owner_a@example.com / Seed1234! (ver "Credenciales de prueba")
 
 # 4. Tests
 make test-backend-unit  # unitarios del backend (sin base de datos)
@@ -166,7 +167,7 @@ Flujo mínimo para levantar todo: `make install && make setup`, y luego `make ba
 
 ### Credenciales de prueba
 
-Creadas por `make seed`. Contraseña única para todos: **`Seed1234!`**
+Creadas por `make seed` (o `make setup`, que lo incluye). Contraseña única para todos: **`Seed1234!`**
 
 | Negocio | Rol | Email |
 |---|---|---|
@@ -175,7 +176,15 @@ Creadas por `make seed`. Contraseña única para todos: **`Seed1234!`**
 | Verdulería La Flor | owner | `owner_b@example.com` |
 | Verdulería La Flor | cajero | `cashier_b@example.com` |
 
+Para probar la app:
+
+1. Levanta ambos servidores (`make backend-dev` y `make frontend-dev`).
+2. Abre http://localhost:5174/login e inicia sesión con cualquiera de las cuentas de la tabla.
+3. Las cuentas ya vienen con el correo confirmado, así que no hace falta verificar el email.
+4. Para comprobar el aislamiento entre negocios, entra con una cuenta del negocio A y otra del B (por ejemplo en otra ventana privada): cada una solo debe ver sus propios datos.
+
 > El seed es idempotente: ejecutarlo más de una vez no duplica datos.
+> Son datos ficticios solo para desarrollo local; no uses estas credenciales en ningún entorno real.
 
 ---
 

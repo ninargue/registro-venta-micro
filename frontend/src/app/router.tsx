@@ -1,6 +1,7 @@
 import { lazy, Suspense } from "react";
 import { createBrowserRouter, Navigate } from "react-router";
 import type { RouteObject } from "react-router";
+import { AppLayout } from "@/app/AppLayout";
 import { CounterShellContainer } from "@/features/auth/containers/CounterShellContainer";
 import { LoginContainer } from "@/features/auth/containers/LoginContainer";
 import { DailyReportPage } from "@/features/reports/pages/DailyReportPage";
@@ -32,36 +33,41 @@ export const routes: RouteObject[] = [
     element: <LoginContainer />,
   },
   {
-    path: "/",
-    element: <CounterShellContainer />,
-  },
-  {
-    path: "/catalog",
-    element: (
-      <Suspense fallback={<div role="status" aria-label="Cargando catálogo" />}>
-        <LazyCatalogListContainer />
-      </Suspense>
-    ),
-  },
-  {
-    path: "/catalog/new",
-    element: (
-      <Suspense fallback={<div role="status" aria-label="Cargando formulario" />}>
-        <LazyProductCreateContainer />
-      </Suspense>
-    ),
-  },
-  {
-    path: "/catalog/:productId/edit",
-    element: (
-      <Suspense fallback={<div role="status" aria-label="Cargando producto" />}>
-        <LazyProductEditContainer />
-      </Suspense>
-    ),
-  },
-  {
-    path: "/reports/daily",
-    element: <DailyReportPage />,
+    element: <AppLayout />,
+    children: [
+      {
+        path: "/",
+        element: <CounterShellContainer />,
+      },
+      {
+        path: "/catalog",
+        element: (
+          <Suspense fallback={<div role="status" aria-label="Cargando catálogo" />}>
+            <LazyCatalogListContainer />
+          </Suspense>
+        ),
+      },
+      {
+        path: "/catalog/new",
+        element: (
+          <Suspense fallback={<div role="status" aria-label="Cargando formulario" />}>
+            <LazyProductCreateContainer />
+          </Suspense>
+        ),
+      },
+      {
+        path: "/catalog/:productId/edit",
+        element: (
+          <Suspense fallback={<div role="status" aria-label="Cargando producto" />}>
+            <LazyProductEditContainer />
+          </Suspense>
+        ),
+      },
+      {
+        path: "/reports/daily",
+        element: <DailyReportPage />,
+      },
+    ],
   },
   {
     path: "*",
