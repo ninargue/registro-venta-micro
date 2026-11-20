@@ -59,7 +59,7 @@ async def _seed_business(
     business_id: str,
     name: str = "Kiosco Ventas",
 ) -> None:
-    # Migration 0004 hardened businesses_onboarding_insert: 
+    # Migration 0004 hardened businesses_onboarding_insert:
     # requires current_user_id + current_business_id
     await db_session.execute(text(f"SET LOCAL app.current_user_id = '{uuid.uuid4()}';"))
     await db_session.execute(text(f"SET LOCAL app.current_business_id = '{business_id}';"))

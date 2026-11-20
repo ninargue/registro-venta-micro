@@ -774,7 +774,7 @@ async def test_businesses_onboarding_insert_requires_user_and_matching_business_
 
             # Raw INSERT sin GUCs: el helper ahora setea contexto, así que se usa SQL directo
             # para verificar que la política rechaza correctamente cada caso negativo.
-            _RAW_INSERT_BUSINESS = text("""
+            raw_insert_business = text("""
                 INSERT INTO businesses (id, name, country, timezone)
                 VALUES (:id, :name, 'AR', 'America/Argentina/Buenos_Aires')
             """)
@@ -782,21 +782,27 @@ async def test_businesses_onboarding_insert_requires_user_and_matching_business_
             # Sin app.current_user_id ni app.current_business_id -> 42501
             with pytest.raises(DBAPIError) as exc_no_ctx:
                 async with db_session.begin_nested():
-                    await db_session.execute(_RAW_INSERT_BUSINESS, {"id": b1, "name": "Sin Contexto"})
+                    await db_session.execute(
+                        raw_insert_business, {"id": b1, "name": "Sin Contexto"}
+                    )
             _assert_sqlstate(exc_no_ctx.value, "42501")
 
             # Con app.current_user_id pero sin app.current_business_id -> 42501
             await db_session.execute(text(f"SET LOCAL app.current_user_id = '{u1}';"))
             with pytest.raises(DBAPIError) as exc_no_biz:
                 async with db_session.begin_nested():
-                    await db_session.execute(_RAW_INSERT_BUSINESS, {"id": b1, "name": "Sin Business"})
+                    await db_session.execute(
+                        raw_insert_business, {"id": b1, "name": "Sin Business"}
+                    )
             _assert_sqlstate(exc_no_biz.value, "42501")
 
             # Con app.current_business_id distinto al id insertado -> 42501
             await db_session.execute(text(f"SET LOCAL app.current_business_id = '{b2}';"))
             with pytest.raises(DBAPIError) as exc_mismatch:
                 async with db_session.begin_nested():
-                    await db_session.execute(_RAW_INSERT_BUSINESS, {"id": b1, "name": "Mismatch Business"})
+                    await db_session.execute(
+                        raw_insert_business, {"id": b1, "name": "Mismatch Business"}
+                    )
             _assert_sqlstate(exc_mismatch.value, "42501")
 
             # Con ambos GUCs válidos y coincidentes -> permitido
@@ -851,7 +857,7 @@ async def test_rls_business_users_insert_without_business_context_rejected(
             await db_session.execute(text("SET LOCAL ROLE app_api;"))
             await db_session.execute(text(f"SET LOCAL app.current_user_id = '{u_a}';"))
 
-            _RAW_INSERT_BU = text("""
+            raw_insert_bu = text("""
                 INSERT INTO business_users (business_id, user_id, role)
                 VALUES (:b_id, :u_id, :role)
             """)
@@ -863,8 +869,7 @@ async def test_rls_business_users_insert_without_business_context_rejected(
             with pytest.raises(DBAPIError) as exc_unset:
                 async with db_session.begin_nested():
                     await db_session.execute(
-                        _RAW_INSERT_BU,
-                        {"b_id": b1, "u_id": u_a, "role": "owner"}
+                        raw_insert_bu, {"b_id": b1, "u_id": u_a, "role": "owner"}
                     )
             _assert_sqlstate(exc_unset.value, "42501")
 
@@ -873,8 +878,7 @@ async def test_rls_business_users_insert_without_business_context_rejected(
             with pytest.raises(DBAPIError) as exc_empty:
                 async with db_session.begin_nested():
                     await db_session.execute(
-                        _RAW_INSERT_BU,
-                        {"b_id": b1, "u_id": u_a, "role": "owner"}
+                        raw_insert_bu, {"b_id": b1, "u_id": u_a, "role": "owner"}
                     )
             _assert_sqlstate(exc_empty.value, "42501")
         finally:
