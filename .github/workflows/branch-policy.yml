@@ -8,10 +8,6 @@ name: Branch Policy
 
 on:
   pull_request:
-    branches:
-      - develop
-      - master
-      - 'release/**'
 
 jobs:
   validate-source-branch:
@@ -64,5 +60,13 @@ jobs:
             fi
           fi
 
-          echo "❌ Rama destino '$BASE' no contemplada por la política."
-          exit 1
+          if echo "$HEAD" | grep -qE "^((feature|fix|hotfix|chore|refactor|docs|test)/$KEBAB|$DEPENDABOT|$RELEASE)$"; then
+            echo "✅ Rama '$HEAD' permitida hacia $BASE."
+            exit 0
+          else
+            echo "❌ '$HEAD' no sigue la convención de nombres."
+            echo "   Formato: <tipo>/<descripcion-en-kebab-case> (minúsculas, números y guiones) o release/vX.Y.Z"
+            echo "   Tipos permitidos: feature/, fix/, hotfix/, chore/, refactor/, docs/, test/, release/"
+            echo "   Ver .github/CONTRIBUTING.md"
+            exit 1
+          fi

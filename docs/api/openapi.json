@@ -1,0 +1,1565 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "registro-venta-micro API",
+    "version": "0.1.0"
+  },
+  "paths": {
+    "/api/v1/health": {
+      "get": {
+        "tags": [
+          "health"
+        ],
+        "summary": "Health",
+        "description": "Liveness público: no expone información del entorno.",
+        "operationId": "health_api_v1_health_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": {
+                    "type": "string"
+                  },
+                  "type": "object",
+                  "title": "Response Health Api V1 Health Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/auth/login": {
+      "post": {
+        "tags": [
+          "auth"
+        ],
+        "summary": "Login",
+        "description": "Autentica usuario contra Supabase Auth y emite cookies HttpOnly con JWTs.",
+        "operationId": "login_api_v1_auth_login_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LoginRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LoginResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Content",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too Many Requests",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "Bad Gateway",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/auth/onboarding": {
+      "post": {
+        "tags": [
+          "auth"
+        ],
+        "summary": "Onboarding",
+        "description": "Crea el comercio único del usuario autenticado y refresca las cookies JWT.",
+        "operationId": "onboarding_api_v1_auth_onboarding_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OnboardingRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BusinessResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Content",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/auth/me": {
+      "get": {
+        "tags": [
+          "auth"
+        ],
+        "summary": "Me",
+        "description": "Devuelve identidad y estado de negocio del usuario autenticado.",
+        "operationId": "me_api_v1_auth_me_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LoginResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/auth/logout": {
+      "post": {
+        "tags": [
+          "auth"
+        ],
+        "summary": "Logout",
+        "description": "Limpia las cookies de sesión HttpOnly.",
+        "operationId": "logout_api_v1_auth_logout_post",
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          }
+        }
+      }
+    },
+    "/api/v1/auth/refresh": {
+      "post": {
+        "tags": [
+          "auth"
+        ],
+        "summary": "Refresh",
+        "description": "Renueva las cookies de sesión a partir de una cookie refresh_token válida.",
+        "operationId": "refresh_api_v1_auth_refresh_post",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LoginResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/catalog/products": {
+      "get": {
+        "tags": [
+          "catalog"
+        ],
+        "summary": "List Products",
+        "description": "Lista productos del catálogo del comercio autenticado con búsqueda y paginación.",
+        "operationId": "list_products_api_v1_catalog_products_get",
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 150
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Búsqueda parcial por nombre o código",
+              "title": "Q"
+            },
+            "description": "Búsqueda parcial por nombre o código"
+          },
+          {
+            "name": "include_inactive",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "description": "Incluir productos desactivados",
+              "default": false,
+              "title": "Include Inactive"
+            },
+            "description": "Incluir productos desactivados"
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 200,
+              "minimum": 1,
+              "description": "Cantidad máxima de resultados por página",
+              "default": 50,
+              "title": "Limit"
+            },
+            "description": "Cantidad máxima de resultados por página"
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 2147483647,
+              "minimum": 0,
+              "description": "Desplazamiento para paginación",
+              "default": 0,
+              "title": "Offset"
+            },
+            "description": "Desplazamiento para paginación"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProductListResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "catalog"
+        ],
+        "summary": "Create Product",
+        "description": "Crea un producto en el catálogo del comercio autenticado (solo owner).",
+        "operationId": "create_product_api_v1_catalog_products_post",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProductCreate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProductResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          }
+        }
+      }
+    },
+    "/api/v1/catalog/products/{product_id}": {
+      "patch": {
+        "tags": [
+          "catalog"
+        ],
+        "summary": "Update Product",
+        "description": "Actualiza parcialmente un producto del catálogo del comercio autenticado (solo owner).",
+        "operationId": "update_product_api_v1_catalog_products__product_id__patch",
+        "parameters": [
+          {
+            "name": "product_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Product Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProductUpdate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProductResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          }
+        }
+      }
+    },
+    "/api/v1/reports/daily": {
+      "get": {
+        "tags": [
+          "reports"
+        ],
+        "summary": "Get Daily Report",
+        "description": "Obtiene el consolidado diario de ventas, medios de pago, costos y margen (solo owner).",
+        "operationId": "get_daily_report_api_v1_reports_daily_get",
+        "parameters": [
+          {
+            "name": "date",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "date"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Fecha local del reporte en formato ISO YYYY-MM-DD (por defecto, fecha actual en la zona horaria del comercio)",
+              "examples": [
+                "2026-11-19"
+              ],
+              "title": "Date"
+            },
+            "description": "Fecha local del reporte en formato ISO YYYY-MM-DD (por defecto, fecha actual en la zona horaria del comercio)"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DailyReportResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          }
+        }
+      }
+    },
+    "/api/v1/sales": {
+      "post": {
+        "tags": [
+          "sales"
+        ],
+        "summary": "Create Sale",
+        "description": "Registra una venta de forma transaccional e idempotente para el comercio autenticado.",
+        "operationId": "create_sale_api_v1_sales_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SaleCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SaleResponse"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Idempotent retry returning previously persisted sale",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SaleResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Content",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "BusinessResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "country": {
+            "type": "string",
+            "title": "Country"
+          },
+          "timezone": {
+            "type": "string",
+            "title": "Timezone"
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "owner",
+              "cashier"
+            ],
+            "title": "Role",
+            "default": "owner"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "country",
+          "timezone",
+          "created_at"
+        ],
+        "title": "BusinessResponse",
+        "description": "Respuesta de comercio creado en POST /api/v1/auth/onboarding."
+      },
+      "BusinessSummary": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "country": {
+            "type": "string",
+            "title": "Country"
+          },
+          "timezone": {
+            "type": "string",
+            "title": "Timezone"
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "owner",
+              "cashier"
+            ],
+            "title": "Role"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "country",
+          "timezone",
+          "role"
+        ],
+        "title": "BusinessSummary",
+        "description": "Resumen del comercio asociado al usuario."
+      },
+      "DailyReportResponse": {
+        "properties": {
+          "date": {
+            "type": "string",
+            "format": "date",
+            "title": "Date",
+            "description": "Fecha local consolidada en la zona horaria del comercio",
+            "examples": [
+              "2026-11-19"
+            ]
+          },
+          "timezone": {
+            "type": "string",
+            "title": "Timezone",
+            "description": "Zona horaria IANA aplicada al corte diario",
+            "examples": [
+              "America/Argentina/Buenos_Aires"
+            ]
+          },
+          "total_sales": {
+            "type": "string",
+            "title": "Total Sales",
+            "description": "Total bruto facturado en el día",
+            "examples": [
+              "30000.00"
+            ]
+          },
+          "transactions_count": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Transactions Count",
+            "description": "Cantidad total de ventas registradas en el día",
+            "examples": [
+              3
+            ]
+          },
+          "total_cost": {
+            "type": "string",
+            "title": "Total Cost",
+            "description": "Costo total acumulado de mercadería vendida (SUM(quantity * unit_cost))",
+            "examples": [
+              "21000.00"
+            ]
+          },
+          "gross_margin": {
+            "type": "string",
+            "title": "Gross Margin",
+            "description": "Margen bruto estimado (total_sales - total_cost)",
+            "examples": [
+              "9000.00"
+            ]
+          },
+          "margin_percentage": {
+            "type": "string",
+            "title": "Margin Percentage",
+            "description": "Porcentaje de rentabilidad sobre ventas ((gross_margin / total_sales) * 100); 0.00 si no hay ventas",
+            "examples": [
+              "30.00"
+            ]
+          },
+          "payment_breakdown": {
+            "$ref": "#/components/schemas/PaymentMethodBreakdown",
+            "description": "Desglose de recaudación por medio de pago"
+          }
+        },
+        "type": "object",
+        "required": [
+          "date",
+          "timezone",
+          "total_sales",
+          "transactions_count",
+          "total_cost",
+          "gross_margin",
+          "margin_percentage",
+          "payment_breakdown"
+        ],
+        "title": "DailyReportResponse",
+        "description": "Consolidado diario de ventas, medios de pago, costos y margen bruto."
+      },
+      "ErrorResponse": {
+        "properties": {
+          "code": {
+            "type": "string",
+            "title": "Code"
+          },
+          "message": {
+            "type": "string",
+            "title": "Message"
+          },
+          "details": {
+            "anyOf": [
+              {},
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Details"
+          }
+        },
+        "type": "object",
+        "required": [
+          "code",
+          "message"
+        ],
+        "title": "ErrorResponse",
+        "description": "Estructura estándar de error en respuestas HTTP de la API."
+      },
+      "LoginRequest": {
+        "properties": {
+          "email": {
+            "type": "string",
+            "maxLength": 254,
+            "title": "Email"
+          },
+          "password": {
+            "type": "string",
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Password"
+          }
+        },
+        "type": "object",
+        "required": [
+          "email",
+          "password"
+        ],
+        "title": "LoginRequest",
+        "description": "Credenciales de entrada para POST /api/v1/auth/login."
+      },
+      "LoginResponse": {
+        "properties": {
+          "user": {
+            "$ref": "#/components/schemas/UserPayload"
+          },
+          "requires_onboarding": {
+            "type": "boolean",
+            "title": "Requires Onboarding"
+          },
+          "business": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/BusinessSummary"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "user",
+          "requires_onboarding"
+        ],
+        "title": "LoginResponse",
+        "description": "Respuesta de login con estado de onboarding y comercio opcional."
+      },
+      "OnboardingRequest": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "country": {
+            "type": "string",
+            "title": "Country"
+          },
+          "timezone": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Timezone"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name",
+          "country"
+        ],
+        "title": "OnboardingRequest",
+        "description": "Payload de creación de comercio en POST /api/v1/auth/onboarding."
+      },
+      "PaymentMethodBreakdown": {
+        "properties": {
+          "cash": {
+            "type": "string",
+            "title": "Cash",
+            "description": "Total recaudado en efectivo",
+            "examples": [
+              "15000.00"
+            ]
+          },
+          "card": {
+            "type": "string",
+            "title": "Card",
+            "description": "Total recaudado con tarjeta",
+            "examples": [
+              "10000.00"
+            ]
+          },
+          "transfer": {
+            "type": "string",
+            "title": "Transfer",
+            "description": "Total recaudado por transferencia/QR",
+            "examples": [
+              "5000.00"
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "cash",
+          "card",
+          "transfer"
+        ],
+        "title": "PaymentMethodBreakdown",
+        "description": "Desglose de recaudación diaria por medio de pago."
+      },
+      "ProductCreate": {
+        "properties": {
+          "code": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 50
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Code",
+            "description": "Código interno o SKU opcional",
+            "examples": [
+              "SKU-001"
+            ]
+          },
+          "name": {
+            "type": "string",
+            "maxLength": 150,
+            "minLength": 1,
+            "title": "Name",
+            "description": "Nombre del producto",
+            "examples": [
+              "Yerba Mate 1kg"
+            ]
+          },
+          "sale_price": {
+            "anyOf": [
+              {
+                "type": "number",
+                "maximum": 9999999999.99,
+                "exclusiveMinimum": 0.0
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "title": "Sale Price",
+            "description": "Precio de venta bruto (sin impuestos)",
+            "examples": [
+              "3500.50"
+            ]
+          },
+          "cost_price": {
+            "anyOf": [
+              {
+                "type": "number",
+                "maximum": 9999999999.99,
+                "minimum": 0.0
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "title": "Cost Price",
+            "description": "Costo unitario de referencia",
+            "default": "0.00",
+            "examples": [
+              "2200.00"
+            ]
+          },
+          "stock": {
+            "anyOf": [
+              {
+                "type": "number",
+                "maximum": 9999999999.99,
+                "minimum": 0.0
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "title": "Stock",
+            "description": "Stock inicial del producto",
+            "default": "0.00",
+            "examples": [
+              "10.00"
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "name",
+          "sale_price"
+        ],
+        "title": "ProductCreate",
+        "description": "Payload de entrada para crear un producto en POST /api/v1/catalog/products."
+      },
+      "ProductListResponse": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/ProductResponse"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          },
+          "limit": {
+            "type": "integer",
+            "title": "Limit"
+          },
+          "offset": {
+            "type": "integer",
+            "title": "Offset"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items",
+          "total",
+          "limit",
+          "offset"
+        ],
+        "title": "ProductListResponse",
+        "description": "Respuesta paginada de productos del catálogo."
+      },
+      "ProductResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Code"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "sale_price": {
+            "type": "string",
+            "title": "Sale Price"
+          },
+          "cost_price": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cost Price"
+          },
+          "stock": {
+            "type": "string",
+            "title": "Stock"
+          },
+          "is_active": {
+            "type": "boolean",
+            "title": "Is Active"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Updated At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "code",
+          "name",
+          "sale_price",
+          "cost_price",
+          "stock",
+          "is_active",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "ProductResponse",
+        "description": "Representación de salida de un producto del catálogo."
+      },
+      "ProductUpdate": {
+        "properties": {
+          "code": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 50
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Code",
+            "description": "Código interno o SKU opcional",
+            "examples": [
+              "SKU-001"
+            ]
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 150,
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name",
+            "description": "Nombre del producto",
+            "examples": [
+              "Yerba Mate 1kg"
+            ]
+          },
+          "sale_price": {
+            "anyOf": [
+              {
+                "type": "number",
+                "maximum": 9999999999.99,
+                "exclusiveMinimum": 0.0
+              },
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sale Price",
+            "description": "Precio de venta bruto (sin impuestos)",
+            "examples": [
+              "3500.50"
+            ]
+          },
+          "cost_price": {
+            "anyOf": [
+              {
+                "type": "number",
+                "maximum": 9999999999.99,
+                "minimum": 0.0
+              },
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cost Price",
+            "description": "Costo unitario de referencia",
+            "examples": [
+              "2200.00"
+            ]
+          },
+          "stock": {
+            "anyOf": [
+              {
+                "type": "number",
+                "maximum": 9999999999.99,
+                "minimum": 0.0
+              },
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Stock",
+            "description": "Stock actual del producto",
+            "examples": [
+              "10.00"
+            ]
+          }
+        },
+        "type": "object",
+        "title": "ProductUpdate",
+        "description": "Payload de entrada para actualizar parcialmente un producto en PATCH."
+      },
+      "SaleCreate": {
+        "properties": {
+          "client_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Client Id",
+            "description": "Identificador UUID v4 generado en cliente para idempotencia"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/SaleItemCreate"
+            },
+            "type": "array",
+            "maxItems": 500,
+            "minItems": 1,
+            "title": "Items",
+            "description": "Líneas de la venta"
+          },
+          "payments": {
+            "items": {
+              "$ref": "#/components/schemas/SalePaymentCreate"
+            },
+            "type": "array",
+            "maxItems": 20,
+            "minItems": 1,
+            "title": "Payments",
+            "description": "Desglose de pagos"
+          }
+        },
+        "type": "object",
+        "required": [
+          "client_id",
+          "items",
+          "payments"
+        ],
+        "title": "SaleCreate",
+        "description": "Payload de entrada para registrar una venta en POST /api/v1/sales."
+      },
+      "SaleItemCreate": {
+        "properties": {
+          "product_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Product Id",
+            "description": "Identificador del producto"
+          },
+          "quantity": {
+            "type": "string",
+            "pattern": "^\\d{1,10}(\\.\\d{1,2})?$",
+            "format": "decimal",
+            "title": "Quantity",
+            "description": "Cantidad vendida (string decimal exacto, sin float)",
+            "examples": [
+              "2.00"
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "product_id",
+          "quantity"
+        ],
+        "title": "SaleItemCreate",
+        "description": "Línea de producto en una solicitud de venta."
+      },
+      "SaleItemResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "product_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Product Id"
+          },
+          "product_name": {
+            "type": "string",
+            "title": "Product Name"
+          },
+          "quantity": {
+            "type": "string",
+            "title": "Quantity"
+          },
+          "unit_price": {
+            "type": "string",
+            "title": "Unit Price"
+          },
+          "subtotal": {
+            "type": "string",
+            "title": "Subtotal"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "product_id",
+          "product_name",
+          "quantity",
+          "unit_price",
+          "subtotal"
+        ],
+        "title": "SaleItemResponse",
+        "description": "Línea de comprobante de venta (omite unit_cost intencionalmente)."
+      },
+      "SalePaymentCreate": {
+        "properties": {
+          "payment_method": {
+            "type": "string",
+            "enum": [
+              "cash",
+              "card",
+              "transfer"
+            ],
+            "title": "Payment Method",
+            "description": "Medio de pago admitido en MVP",
+            "examples": [
+              "cash"
+            ]
+          },
+          "amount": {
+            "type": "string",
+            "pattern": "^\\d{1,10}(\\.\\d{1,2})?$",
+            "format": "decimal",
+            "title": "Amount",
+            "description": "Importe imputado a este medio de pago (string decimal exacto)",
+            "examples": [
+              "3000.00"
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "payment_method",
+          "amount"
+        ],
+        "title": "SalePaymentCreate",
+        "description": "Medio de pago e importe imputado en una venta."
+      },
+      "SalePaymentResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "payment_method": {
+            "type": "string",
+            "enum": [
+              "cash",
+              "card",
+              "transfer"
+            ],
+            "title": "Payment Method"
+          },
+          "amount": {
+            "type": "string",
+            "title": "Amount"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "payment_method",
+          "amount"
+        ],
+        "title": "SalePaymentResponse",
+        "description": "Pago registrado en el comprobante de venta."
+      },
+      "SaleResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "client_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Client Id"
+          },
+          "total_amount": {
+            "type": "string",
+            "title": "Total Amount"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/SaleItemResponse"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "payments": {
+            "items": {
+              "$ref": "#/components/schemas/SalePaymentResponse"
+            },
+            "type": "array",
+            "title": "Payments"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "client_id",
+          "total_amount",
+          "items",
+          "payments",
+          "created_at"
+        ],
+        "title": "SaleResponse",
+        "description": "Comprobante de venta persistido."
+      },
+      "UserPayload": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "email": {
+            "type": "string",
+            "title": "Email"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "email"
+        ],
+        "title": "UserPayload",
+        "description": "Datos básicos del usuario autenticado."
+      }
+    }
+  }
+}

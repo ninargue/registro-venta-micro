@@ -35,9 +35,9 @@ Closes #<!-- número del issue -->
 - [ ] El nombre del branch sigue la convención (`feature/`, `fix/`, `hotfix/`, `chore/`, `refactor/`, `docs/`, `test/`, `release/`)
 
 ### 🏢 Si toca datos de negocio (multitenant)
-- [ ] Toda tabla operativa nueva tiene `tenant_id` **NOT NULL**, política **RLS** activa y `FORCE ROW LEVEL SECURITY`
-- [ ] Las FK entre tablas operativas son compuestas `(tenant_id, id)`
-- [ ] Hay prueba de aislamiento: un usuario de otro tenant no puede leer ni modificar el recurso
+- [ ] Toda tabla operativa nueva tiene `business_id` **NOT NULL**, política **RLS** activa y `FORCE ROW LEVEL SECURITY` (usando `app.current_business_id`)
+- [ ] Las FK entre tablas operativas son compuestas `(business_id, id)`
+- [ ] Hay prueba de aislamiento: un usuario de otro negocio (tenant) no puede leer ni modificar el recurso
 
 ### 🗄️ Si toca el esquema
 - [ ] La migración la generó **Alembic** y se revisó el script generado

@@ -1,0 +1,33 @@
+schema: spec-driven
+
+context: |
+  Tech stack: FastAPI, Pydantic v2, SQLAlchemy 2 (async), asyncpg, Alembic, Python 3.14 con uv, PostgreSQL 17 (Supabase local), React 19, TypeScript, Vite.
+  Architecture: Cliente-servidor API-first, monolito modular en capas (Router -> Service -> Repository).
+  Multitenant: Cada transacción impone SET LOCAL app.current_business_id = '<uuid>' y aislamiento RLS.
+  Testing: pytest en backend (cd backend && uv run pytest).
+  Git & Commits: Conventional Commits (feat, fix, docs, chore, etc.)
+
+rules:
+  proposal:
+    - Mantener las propuestas enfocadas en el problema y la necesidad del ticket técnico.
+    - Explicar siempre la sección Non-goals.
+    - Longitud concisa (máximo 500 palabras).
+  specs:
+    - Redactar los requisitos en formato Given / When / Then o reglas observables (2xx, 4xx, seguridad RLS).
+    - Desacoplar las especificaciones de nombres de variables temporales.
+  design:
+    - Incluir el bloque de convenciones detectadas para que backend-developer-agent y validadores lo lean.
+    - Diagramas en Mermaid de alto contraste.
+    - Especificar contratos DTOs/Schemas, rutas, errores y estrategia de seguridad RLS.
+  tasks:
+    - Checklist (- [ ]) de tareas atómicas ordenadas topológicamente.
+    - Modelos/Tipos y DTOs -> Repositorio -> Servicio -> Router/Middleware -> Tests.
+
+db:
+  engine: postgres
+  mcp_optional: false
+  environments:
+    dev_url_env: DATABASE_URL
+    test_url_env: DB_TEST_URL
+    dev_ro_url_env: DB_DEV_RO_URL
+    healthcheck: "SELECT 1"

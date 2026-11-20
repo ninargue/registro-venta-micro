@@ -1,0 +1,312 @@
+{
+  "version": "1.0",
+  "mode": "text-to-wireframe",
+  "name": "catalogo-productos",
+  "description": "Especificación visual y wireframe accesible para la vista de administración de catálogo, formulario de alta/edición y selector táctil de productos (US-02 / TICKET-05 / Issue #44).",
+  "sourceBacklog": [
+    "docs/backlog/0001_registro-venta-micro_mvp/E1-catalogo/us-02-gestion-catalogo.md",
+    "docs/backlog/0001_registro-venta-micro_mvp/E1-catalogo/tickets-us-02-gestion-catalogo.md#TICKET-05"
+  ],
+  "tokenSource": "frontend/src/index.css",
+  "screens": [
+    {
+      "id": "catalog-admin-screen",
+      "title": "Catálogo de Productos",
+      "route": "/catalogo",
+      "states": ["loading", "empty", "error", "offline", "ready"],
+      "elements": [
+        {
+          "id": "catalog-header",
+          "role": "region",
+          "label": "Encabezado de administración de catálogo",
+          "required": true
+        },
+        {
+          "id": "catalog-title",
+          "role": "heading",
+          "label": "Catálogo de Productos",
+          "level": 1,
+          "required": true
+        },
+        {
+          "id": "catalog-new-product-button",
+          "role": "button",
+          "label": "Nuevo Producto",
+          "action": "onOpenCreateProduct",
+          "required": true,
+          "minTouchTarget": "48px"
+        },
+        {
+          "id": "catalog-search-input",
+          "role": "searchbox",
+          "label": "Buscar producto por nombre o código (SKU)",
+          "placeholder": "Buscar por nombre o SKU...",
+          "action": "onSearchChange",
+          "required": true,
+          "minTouchTarget": "48px"
+        },
+        {
+          "id": "catalog-search-clear-button",
+          "role": "button",
+          "label": "Limpiar búsqueda",
+          "action": "onClearSearch",
+          "required": false,
+          "minTouchTarget": "48px"
+        },
+        {
+          "id": "catalog-offline-banner",
+          "role": "status",
+          "label": "Modo sin conexión: mostrando catálogo almacenado localmente",
+          "visibleInStates": ["offline"],
+          "required": false
+        },
+        {
+          "id": "catalog-loading-indicator",
+          "role": "status",
+          "label": "Cargando productos del catálogo",
+          "visibleInStates": ["loading"],
+          "required": true
+        },
+        {
+          "id": "catalog-error-alert",
+          "role": "alert",
+          "label": "Error al cargar los productos del catálogo",
+          "visibleInStates": ["error"],
+          "required": true
+        },
+        {
+          "id": "catalog-retry-button",
+          "role": "button",
+          "label": "Reintentar carga",
+          "action": "onRetryLoad",
+          "visibleInStates": ["error"],
+          "required": true,
+          "minTouchTarget": "48px"
+        },
+        {
+          "id": "catalog-empty-state",
+          "role": "region",
+          "label": "Estado vacío: no hay productos registrados o no hay coincidencias",
+          "visibleInStates": ["empty"],
+          "required": true
+        },
+        {
+          "id": "catalog-empty-create-button",
+          "role": "button",
+          "label": "Agregar primer producto",
+          "action": "onOpenCreateProduct",
+          "visibleInStates": ["empty"],
+          "required": false,
+          "minTouchTarget": "48px"
+        },
+        {
+          "id": "catalog-product-grid",
+          "role": "list",
+          "label": "Grilla táctil de productos con nombre, código opcional, precio de venta y stock actual",
+          "visibleInStates": ["ready", "offline"],
+          "required": true,
+          "itemTemplate": {
+            "id": "catalog-product-card",
+            "role": "listitem",
+            "fields": ["code", "name", "sale_price", "stock"],
+            "elements": [
+              {
+                "id": "catalog-product-edit-button",
+                "role": "button",
+                "label": "Editar producto",
+                "action": "onOpenEditProduct",
+                "required": true,
+                "minTouchTarget": "48px"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "product-form-modal",
+      "title": "Alta y Edición de Producto",
+      "type": "modal",
+      "states": ["loading", "error", "ready"],
+      "elements": [
+        {
+          "id": "product-form-dialog",
+          "role": "dialog",
+          "label": "Formulario de alta o edición de producto",
+          "ariaModal": true,
+          "required": true
+        },
+        {
+          "id": "product-form-heading",
+          "role": "heading",
+          "label": "Nuevo Producto / Editar Producto",
+          "level": 2,
+          "required": true
+        },
+        {
+          "id": "product-form",
+          "role": "form",
+          "label": "Campos de producto",
+          "action": "onSubmitProduct",
+          "required": true
+        },
+        {
+          "id": "product-code-input",
+          "role": "textbox",
+          "label": "Código / SKU (opcional)",
+          "type": "text",
+          "placeholder": "Ej. 7790001001",
+          "required": false,
+          "minTouchTarget": "48px"
+        },
+        {
+          "id": "product-name-input",
+          "role": "textbox",
+          "label": "Nombre del producto",
+          "type": "text",
+          "placeholder": "Ej. Agua Mineral 500ml",
+          "required": true,
+          "minTouchTarget": "48px"
+        },
+        {
+          "id": "product-sale-price-input",
+          "role": "spinbutton",
+          "label": "Precio de venta",
+          "inputMode": "decimal",
+          "validation": "Decimal > 0, precio bruto sin desglose impositivo",
+          "required": true,
+          "minTouchTarget": "48px"
+        },
+        {
+          "id": "product-cost-price-input",
+          "role": "spinbutton",
+          "label": "Costo",
+          "inputMode": "decimal",
+          "validation": "Decimal >= 0",
+          "required": true,
+          "minTouchTarget": "48px"
+        },
+        {
+          "id": "product-stock-input",
+          "role": "spinbutton",
+          "label": "Stock inicial / Stock actual",
+          "inputMode": "decimal",
+          "validation": "Decimal >= 0",
+          "required": true,
+          "minTouchTarget": "48px"
+        },
+        {
+          "id": "product-form-validation-alert",
+          "role": "alert",
+          "label": "Feedback visual de errores de validación de campos o error al guardar",
+          "visibleInStates": ["error"],
+          "required": true
+        },
+        {
+          "id": "product-form-cancel-button",
+          "role": "button",
+          "label": "Cancelar",
+          "action": "onCancelProductForm",
+          "required": true,
+          "minTouchTarget": "48px"
+        },
+        {
+          "id": "product-form-submit-button",
+          "role": "button",
+          "label": "Guardar Producto",
+          "action": "onSubmitProduct",
+          "disabledInStates": ["loading"],
+          "required": true,
+          "minTouchTarget": "48px"
+        }
+      ]
+    },
+    {
+      "id": "product-selector-view",
+      "title": "Selector de Productos",
+      "type": "component",
+      "states": ["loading", "empty", "error", "offline", "ready"],
+      "elements": [
+        {
+          "id": "selector-search-input",
+          "role": "searchbox",
+          "label": "Buscar producto para seleccionar por nombre o SKU",
+          "placeholder": "Buscar producto...",
+          "action": "onSelectorSearchChange",
+          "required": true,
+          "minTouchTarget": "48px"
+        },
+        {
+          "id": "selector-loading-indicator",
+          "role": "status",
+          "label": "Cargando selector de productos",
+          "visibleInStates": ["loading"],
+          "required": true
+        },
+        {
+          "id": "selector-error-alert",
+          "role": "alert",
+          "label": "Error al cargar el selector de productos",
+          "visibleInStates": ["error"],
+          "required": true
+        },
+        {
+          "id": "selector-empty-state",
+          "role": "region",
+          "label": "Sin productos disponibles para seleccionar",
+          "visibleInStates": ["empty"],
+          "required": true
+        },
+        {
+          "id": "selector-product-grid",
+          "role": "listbox",
+          "label": "Grilla táctil de selección rápida de productos con nombre, precio y stock",
+          "visibleInStates": ["ready", "offline"],
+          "required": true,
+          "itemTemplate": {
+            "id": "selector-product-option",
+            "role": "option",
+            "fields": ["name", "sale_price", "stock"],
+            "action": "onSelectProduct",
+            "required": true,
+            "minTouchTarget": "48px"
+          }
+        }
+      ]
+    }
+  ],
+  "tokens": {
+    "colors": {
+      "primary": "#4F46E5",
+      "primaryHover": "#4338CA",
+      "primaryLight": "#EEF2FF",
+      "primaryDark": "#3730A3",
+      "backgroundLight": "#F9FAFB",
+      "backgroundDark": "#111827",
+      "surfaceLight": "#FFFFFF",
+      "surfaceDark": "#1F2937",
+      "textLight": "#111827",
+      "textDark": "#F9FAFB",
+      "textMutedLight": "#4B5563",
+      "textMutedDark": "#9CA3AF",
+      "borderLight": "#E5E7EB",
+      "borderDark": "#374151",
+      "error": "#DC2626",
+      "errorLight": "#FEF2F2",
+      "success": "#16A34A"
+    },
+    "spacing": {
+      "touchTarget": "48px",
+      "controlHeight": "48px",
+      "containerPadding": "16px",
+      "gap": "16px",
+      "borderRadius": "8px"
+    },
+    "typography": {
+      "fontFamily": "system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif",
+      "titleSize": "1.5rem",
+      "bodySize": "1rem",
+      "smallSize": "0.875rem"
+    }
+  }
+}

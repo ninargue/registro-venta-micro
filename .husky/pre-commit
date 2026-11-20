@@ -1,0 +1,26 @@
+#!/usr/bin/env sh
+
+# Los hooks de git no cargan el perfil del shell, asi que fnm no se activa solo.
+# Si fnm esta instalado, usamos la version de .nvmrc; si no, seguimos con el Node disponible.
+if command -v fnm >/dev/null 2>&1; then
+	eval "$(fnm env)"
+	fnm use >/dev/null 2>&1 || true
+fi
+
+if ! command -v uv >/dev/null 2>&1; then
+	echo "pre-commit: falta 'uv'. Instalalo: https://docs.astral.sh/uv/ (el backend lo usa para ruff)." >&2
+	exit 1
+fi
+
+if [ ! -d frontend/node_modules ]; then
+	echo "pre-commit: faltan dependencias del frontend. Ejecuta: npm --prefix frontend ci" >&2
+	exit 1
+fi
+
+if [ ! -f node_modules/lint-staged/bin/lint-staged.js ]; then
+	echo "pre-commit: falta lint-staged. Ejecuta: npm install (en la raiz del repo)." >&2
+	exit 1
+fi
+
+# Formatea solo los archivos del commit y los vuelve a agregar (lint-staged).
+node node_modules/lint-staged/bin/lint-staged.js

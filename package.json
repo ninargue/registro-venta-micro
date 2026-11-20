@@ -1,0 +1,13 @@
+{
+  "name": "registro-venta-micro",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Herramientas del repositorio (hooks de git). El frontend tiene su propio package.json.",
+  "scripts": {
+    "prepare": "husky"
+  },
+  "devDependencies": {
+    "husky": "^9.1.7",
+    "lint-staged": "^17.6.0"
+  }
+}

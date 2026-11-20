@@ -10,3 +10,38 @@ Thumbs.db
 .env
 .env.*
 !.env.example
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+.venv/
+venv/
+*.egg-info/
+dist/
+build/
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+htmlcov/
+.coverage
+coverage.xml
+
+# Node / Frontend
+node_modules/
+dist/
+.pnp
+.pnp.js
+*.tsbuildinfo
+
+# Supabase local
+supabase/.branches/
+supabase/.temp/
+
+# Claude Code (configuración personal)
+.claude/settings.local.json
+
+# Informes del subagente adversarial-reviewer (locales)
+docs/reviews/
