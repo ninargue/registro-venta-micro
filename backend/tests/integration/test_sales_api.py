@@ -107,6 +107,9 @@ async def _seed_product(
     product_id: str | None = None,
 ) -> str:
     pid = product_id or str(uuid.uuid4())
+    # Migration 0004: requires current_user_id + current_business_id GUCs for products INSERT.
+    await db_session.execute(text(f"SET LOCAL app.current_user_id = '{uuid.uuid4()}';"))
+    await db_session.execute(text(f"SET LOCAL app.current_business_id = '{business_id}';"))
     await db_session.execute(
         text(
             """
@@ -1655,6 +1658,13 @@ async def test_concurrent_retry_returns_200_when_catalog_changes_before_for_upda
                     await asyncio.sleep(0.05)
 
                     # Commit initial sale AND deactivate/reprice product before releasing lock
+                    # Migration 0004: requires GUCs for sales/sale_items/payments INSERTs.
+                    await lock_session.execute(
+                        text(f"SET LOCAL app.current_user_id = '{user_id}';")
+                    )
+                    await lock_session.execute(
+                        text(f"SET LOCAL app.current_business_id = '{business_id}';")
+                    )
                     await lock_session.execute(
                         text(
                             """

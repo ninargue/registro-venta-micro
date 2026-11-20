@@ -105,6 +105,9 @@ async def _seed_product(
     product_id: str | None = None,
 ) -> str:
     pid = product_id or str(uuid.uuid4())
+    # Migration 0004: requires current_user_id + current_business_id GUCs for products INSERT.
+    await db_session.execute(text(f"SET LOCAL app.current_user_id = '{uuid.uuid4()}';"))
+    await db_session.execute(text(f"SET LOCAL app.current_business_id = '{business_id}';"))
     await db_session.execute(
         text(
             """

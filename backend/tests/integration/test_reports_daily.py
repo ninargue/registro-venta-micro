@@ -108,6 +108,9 @@ async def _seed_product(
     product_id: str | None = None,
 ) -> str:
     pid = product_id or str(uuid.uuid4())
+    # Migration 0004: requires current_user_id + current_business_id GUCs for products INSERT.
+    await db_session.execute(text(f"SET LOCAL app.current_user_id = '{uuid.uuid4()}';"))
+    await db_session.execute(text(f"SET LOCAL app.current_business_id = '{business_id}';"))
     await db_session.execute(
         text(
             """
@@ -141,6 +144,9 @@ async def _seed_sale(
 ) -> str:
     sid = sale_id or str(uuid.uuid4())
     cid = str(uuid.uuid4())
+    # Migration 0004: requires current_user_id + current_business_id GUCs for sales INSERT.
+    await db_session.execute(text(f"SET LOCAL app.current_user_id = '{uuid.uuid4()}';"))
+    await db_session.execute(text(f"SET LOCAL app.current_business_id = '{business_id}';"))
     if created_at is None:
         await db_session.execute(
             text(
@@ -186,6 +192,9 @@ async def _seed_sale_item(
     unit_cost: Decimal,
 ) -> str:
     iid = str(uuid.uuid4())
+    # Migration 0004: requires current_user_id + current_business_id GUCs for sale_items INSERT.
+    await db_session.execute(text(f"SET LOCAL app.current_user_id = '{uuid.uuid4()}';"))
+    await db_session.execute(text(f"SET LOCAL app.current_business_id = '{business_id}';"))
     await db_session.execute(
         text(
             """
@@ -219,6 +228,9 @@ async def _seed_payment(
     amount: Decimal,
 ) -> str:
     pay_id = str(uuid.uuid4())
+    # Migration 0004: requires current_user_id + current_business_id GUCs for payments INSERT.
+    await db_session.execute(text(f"SET LOCAL app.current_user_id = '{uuid.uuid4()}';"))
+    await db_session.execute(text(f"SET LOCAL app.current_business_id = '{business_id}';"))
     await db_session.execute(
         text(
             """
