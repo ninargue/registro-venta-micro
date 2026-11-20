@@ -1,4 +1,4 @@
-/**
+﻿/**
  * catalog.test.tsx — Design-Blind UI tests for the Catalog feature
  *
  * Fase A: Tests are intentionally RED — imported containers do not exist yet.
@@ -706,6 +706,7 @@ describe("R-14: Modo offline — lista servida desde caché Dexie", () => {
     // Offline notice
     const offlineNotice = await screen.findByText(/Mostrando datos guardados|sin conexión/i);
     expect(offlineNotice).toBeInTheDocument();
+    expect(await screen.findByRole("status")).toHaveTextContent(/Mostrando datos guardados|sin conexión/i);
 
     // Add button disabled in offline mode
     const addButton = screen.queryByRole("button", {
@@ -716,3 +717,4 @@ describe("R-14: Modo offline — lista servida desde caché Dexie", () => {
     }
   });
 });
+

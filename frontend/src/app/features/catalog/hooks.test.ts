@@ -1,4 +1,4 @@
-/**
+﻿/**
  * hooks.test.ts — TanStack Query hook tests for the Catalog feature
  *
  * Fase A: Tests are intentionally RED — imported hooks do not exist yet.
@@ -19,6 +19,7 @@ import { describe, expect, it, vi } from "vitest";
 import { useProducts } from "@/features/catalog/hooks/useProducts";
 import { useCreateProduct } from "@/features/catalog/hooks/useCreateProduct";
 import { useUpdateProduct } from "@/features/catalog/hooks/useUpdateProduct";
+import { db } from "@/lib/db";
 import { DEFAULT_PRODUCT_1, DEFAULT_PRODUCT_2 } from "@/test/mocks/handlers";
 import { server } from "@/test/mocks/server";
 
@@ -291,3 +292,31 @@ describe("useUpdateProduct", () => {
     });
   });
 });
+
+// ── Brechas de mutation testing (M05, M10) ───────────────────────────────────
+
+describe("useProducts — consistencia de clave y persistencia offline", () => {
+  it("registra la query bajo ['catalog','products'] (la misma que invalidan las mutations)", async () => {
+    const { Wrapper, queryClient } = createTestWrapper();
+    const { result } = renderHook(() => useProducts({}), { wrapper: Wrapper });
+    await waitFor(() => {
+      expect(result.current.isSuccess).toBe(true);
+    });
+
+    expect(queryClient.getQueryCache().findAll({ queryKey: ["catalog", "products"] })).toHaveLength(1);
+  });
+
+  it("persiste los items en Dexie con bulkPut tras un fetch exitoso", async () => {
+    const bulkPutSpy = vi.spyOn(db.products, "bulkPut").mockResolvedValue("");
+    const { Wrapper } = createTestWrapper();
+    const { result } = renderHook(() => useProducts({}), { wrapper: Wrapper });
+    await waitFor(() => {
+      expect(result.current.isSuccess).toBe(true);
+    });
+
+    expect(bulkPutSpy).toHaveBeenCalledWith(result.current.data?.items);
+    bulkPutSpy.mockRestore();
+  });
+});
+
+

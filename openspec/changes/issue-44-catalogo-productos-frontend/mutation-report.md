@@ -1,12 +1,12 @@
-# REPORTE DE MUTATION TESTING FRONTEND: issue-44-catalogo-productos-frontend
+﻿# REPORTE DE MUTATION TESTING FRONTEND: issue-44-catalogo-productos-frontend
 
 ## 1. Veredicto de Falsabilidad
 
-- **Estado:** `[APROBADO CON OBSERVACIONES]`
+- **Estado:** `[APROBADO]`
 - **Tests Auditados:**
   - `frontend/src/app/features/catalog/catalog.test.tsx` (20 tests UI)
   - `frontend/src/app/features/catalog/hooks.test.ts` (9 tests de hooks)
-- **Tasa de Mutantes Eliminados:** `10/14` (`71.4%`)
+- **Tasa de Mutantes Eliminados:** `14/14` (`100%`) tras cerrar las brechas B1-B4
 
 ---
 
@@ -18,14 +18,14 @@
 | M02 | FM1 | `validation.ts` | Condicion `name.length === 0` reemplazada por `false` (nunca valida nombre vacio) | R-06: "nombre vacio NO invoca POST, aria-invalid='true'" | Eliminado |
 | M03 | FM3 | `useCreateProduct.ts` | Eliminado `queryClient.invalidateQueries` del `onSuccess` | hooks.test: "invalida la query ['catalog','products'] en exito" | Eliminado |
 | M04 | FM3 | `useUpdateProduct.ts` | Eliminado `queryClient.invalidateQueries` del `onSuccess` | hooks.test: "invalida la query ['catalog','products'] en exito" (update) | Eliminado |
-| M05 | FM3 | `useProducts.ts` | `queryKey: ["catalog", "products", params]` cambiado a `["catalog", "items", params]` | Ninguno | **VIVO** |
-| M06 | FM4 | `CatalogOfflineBanner.tsx` | Eliminado `role="status"` del banner de offline | Ninguno | **VIVO** |
+| M05 | FM3 | `useProducts.ts` | `queryKey: ["catalog", "products", params]` cambiado a `["catalog", "items", params]` | Test agregado (ver seccion 5) | Eliminado |
+| M06 | FM4 | `CatalogOfflineBanner.tsx` | Eliminado `role="status"` del banner de offline | Test agregado (ver seccion 5) | Eliminado |
 | M07 | FM4 | `ProductCard.tsx` | `aria-label="Editar <nombre>"` cambiado a `"Ver <nombre>"` | R-10: `getByRole("button", { name: /Editar <nombre>/i })` | Eliminado |
 | M08 | FM5 | `api.ts` | Metodo HTTP de `createProduct` cambiado de `POST` a `PUT` | R-07, R-08, R-09 y hooks.test POST tests | Eliminado |
 | M09 | FM5 | `api.ts` | Metodo HTTP de `updateProduct` cambiado de `PATCH` a `POST` | R-11, R-12 y hooks.test PATCH tests | Eliminado |
-| M10 | FM2 | `useProducts.ts` | Eliminado `db.products.bulkPut(data.items)` (sin persistencia offline en Dexie) | Ninguno | **VIVO** |
+| M10 | FM2 | `useProducts.ts` | Eliminado `db.products.bulkPut(data.items)` (sin persistencia offline en Dexie) | Test agregado (ver seccion 5) | Eliminado |
 | M11 | FM1 | `validation.ts` | Funcion `validateProductCreate` retorna siempre `null` (sin errores) | R-06: tres tests de validacion | Eliminado |
-| M12 | FM3 | `ProductForm.tsx` | Eliminado `e.preventDefault()` del handler `handleSubmit` | Ninguno | **VIVO** |
+| M12 | FM3 | `ProductForm.tsx` | Eliminado `e.preventDefault()` del handler `handleSubmit` | Test agregado (ver seccion 5) | Eliminado |
 | M13 | FM5 | `api.ts` | URL de `fetchProducts` cambiada a `/api/v1/catalog/items` | Multiples: hooks.test y catalog.test (7 fallos) | Eliminado |
 | M14 | FM2 | `CatalogOfflineBanner.tsx` | Condicion de visibilidad invertida: `if (isOffline) return null` | R-14: "muestra aviso de modo sin conexion" | Eliminado |
 
@@ -90,3 +90,17 @@ O usar `userEvent` y un spy sobre `HTMLFormElement.prototype.submit` para detect
 - **Suite tras revertir todas las mutaciones:** 73/73 tests en verde.
 - **Archivos modificados durante el proceso:** todos revertidos a su estado original identico al anterior.
 - **Verificacion final:** `npx vitest run` — 9 Test Files passed, 73 Tests passed.
+
+
+---
+
+## 5. Cierre de brechas (re-verificacion)
+
+Se agregaron tests y se re-aplicaron M05, M06, M10 y M12; la suite falla en los cuatro casos y las mutaciones fueron revertidas.
+
+| Mutante | Test agregado |
+|---|---|
+| M05 | hooks.test.ts: query registrada bajo `["catalog","products"]` |
+| M06 | catalog.test.tsx (R-14): `findByRole("status")` con el texto del aviso |
+| M10 | hooks.test.ts: `bulkPut` llamado con los items tras fetch exitoso |
+| M12 | ProductForm.test.tsx: el submit queda con `defaultPrevented` |
