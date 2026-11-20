@@ -1,5 +1,9 @@
 @import "tailwindcss";
 
+/* La variante `dark:` sigue al atributo data-theme que gestiona ThemeProvider (y no al
+   tema del sistema operativo), para que el botón claro/oscuro controle toda la UI. */
+@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
+
 @theme {
   --color-primary: #4f46e5;
   --color-primary-hover: #4338ca;
@@ -35,6 +39,14 @@
     color-scheme: light dark;
   }
 
+  html[data-theme="light"] {
+    color-scheme: light;
+  }
+
+  html[data-theme="dark"] {
+    color-scheme: dark;
+  }
+
   body {
     background-color: var(--color-background-light);
     color: var(--color-text-light);
@@ -43,7 +55,7 @@
     -webkit-font-smoothing: antialiased;
   }
 
-  .dark body {
+  [data-theme="dark"] body {
     background-color: var(--color-background-dark);
     color: var(--color-text-dark);
   }
