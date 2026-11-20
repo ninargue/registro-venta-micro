@@ -59,6 +59,10 @@ async def _seed_business(
     business_id: str,
     name: str = "Kiosco Ventas",
 ) -> None:
+    # Migration 0004 hardened businesses_onboarding_insert: 
+    # requires current_user_id + current_business_id
+    await db_session.execute(text(f"SET LOCAL app.current_user_id = '{uuid.uuid4()}';"))
+    await db_session.execute(text(f"SET LOCAL app.current_business_id = '{business_id}';"))
     await db_session.execute(
         text(
             """
@@ -76,6 +80,9 @@ async def _seed_business_user(
     user_id: str,
     role: str = "owner",
 ) -> None:
+    # Migration 0004 hardened business_users_insert_own_user: requires user_id + business_id GUCs.
+    await db_session.execute(text(f"SET LOCAL app.current_user_id = '{user_id}';"))
+    await db_session.execute(text(f"SET LOCAL app.current_business_id = '{business_id}';"))
     await db_session.execute(
         text(
             """

@@ -20,6 +20,10 @@ def _assert_sqlstate(exc: DBAPIError, expected_sqlstate: str) -> None:
 async def _insert_business(
     db_session: AsyncSession, business_id: str, name: str = "Comercio"
 ) -> None:
+    # Migration 0004 hardened businesses_onboarding_insert:
+    # requires current_user_id + current_business_id.
+    await db_session.execute(text(f"SET LOCAL app.current_user_id = '{uuid.uuid4()}';"))
+    await db_session.execute(text(f"SET LOCAL app.current_business_id = '{business_id}';"))
     await db_session.execute(
         text(
             """

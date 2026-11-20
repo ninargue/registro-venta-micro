@@ -245,6 +245,10 @@ async def test_rls_isolation_by_session_variable(db_session: AsyncSession) -> No
 async def _insert_business(
     db_session: AsyncSession, business_id: str, name: str = "Comercio"
 ) -> None:
+    # Migration 0004 hardened businesses_onboarding_insert:
+    # requires current_user_id + current_business_id.
+    await db_session.execute(text(f"SET LOCAL app.current_user_id = '{uuid.uuid4()}';"))
+    await db_session.execute(text(f"SET LOCAL app.current_business_id = '{business_id}';"))
     await db_session.execute(
         text(
             """
@@ -262,6 +266,10 @@ async def _insert_business_user(
     user_id: str,
     role: str = "owner",
 ) -> None:
+    # Migration 0004 hardened business_users_insert_own_user:
+    # requires user_id + business_id GUCs.
+    await db_session.execute(text(f"SET LOCAL app.current_user_id = '{user_id}';"))
+    await db_session.execute(text(f"SET LOCAL app.current_business_id = '{business_id}';"))
     await db_session.execute(
         text(
             """
@@ -727,6 +735,8 @@ async def test_app_api_cannot_bypass_rls_or_truncate(db_session: AsyncSession) -
             assert del_unfiltered.rowcount == 1
 
             await db_session.execute(text("RESET ROLE;"))
+            # app_runtime is NOBYPASSRLS; switch context to b2 to verify its row survived.
+            await db_session.execute(text(f"SET LOCAL app.current_business_id = '{b2}';"))
             remaining_b2 = (
                 await db_session.execute(
                     text("SELECT count(*) FROM business_users WHERE business_id = :b2;"),
@@ -762,24 +772,31 @@ async def test_businesses_onboarding_insert_requires_user_and_matching_business_
         try:
             await db_session.execute(text("SET LOCAL ROLE app_api;"))
 
+            # Raw INSERT sin GUCs: el helper ahora setea contexto, así que se usa SQL directo
+            # para verificar que la política rechaza correctamente cada caso negativo.
+            _RAW_INSERT_BUSINESS = text("""
+                INSERT INTO businesses (id, name, country, timezone)
+                VALUES (:id, :name, 'AR', 'America/Argentina/Buenos_Aires')
+            """)
+
             # Sin app.current_user_id ni app.current_business_id -> 42501
             with pytest.raises(DBAPIError) as exc_no_ctx:
                 async with db_session.begin_nested():
-                    await _insert_business(db_session, b1, "Sin Contexto")
+                    await db_session.execute(_RAW_INSERT_BUSINESS, {"id": b1, "name": "Sin Contexto"})
             _assert_sqlstate(exc_no_ctx.value, "42501")
 
             # Con app.current_user_id pero sin app.current_business_id -> 42501
             await db_session.execute(text(f"SET LOCAL app.current_user_id = '{u1}';"))
             with pytest.raises(DBAPIError) as exc_no_biz:
                 async with db_session.begin_nested():
-                    await _insert_business(db_session, b1, "Sin Business")
+                    await db_session.execute(_RAW_INSERT_BUSINESS, {"id": b1, "name": "Sin Business"})
             _assert_sqlstate(exc_no_biz.value, "42501")
 
             # Con app.current_business_id distinto al id insertado -> 42501
             await db_session.execute(text(f"SET LOCAL app.current_business_id = '{b2}';"))
             with pytest.raises(DBAPIError) as exc_mismatch:
                 async with db_session.begin_nested():
-                    await _insert_business(db_session, b1, "Mismatch Business")
+                    await db_session.execute(_RAW_INSERT_BUSINESS, {"id": b1, "name": "Mismatch Business"})
             _assert_sqlstate(exc_mismatch.value, "42501")
 
             # Con ambos GUCs válidos y coincidentes -> permitido
@@ -834,17 +851,31 @@ async def test_rls_business_users_insert_without_business_context_rejected(
             await db_session.execute(text("SET LOCAL ROLE app_api;"))
             await db_session.execute(text(f"SET LOCAL app.current_user_id = '{u_a}';"))
 
-            # app.current_business_id sin setear (NULL) debe rechazarse con 42501
+            _RAW_INSERT_BU = text("""
+                INSERT INTO business_users (business_id, user_id, role)
+                VALUES (:b_id, :u_id, :role)
+            """)
+
+            # Limpiar current_business_id heredado del setup del helper (migración 0004 lo setea).
+            await db_session.execute(text("SET LOCAL app.current_business_id = '';"))
+
+            # app.current_business_id vacío debe rechazarse con 42501
             with pytest.raises(DBAPIError) as exc_unset:
                 async with db_session.begin_nested():
-                    await _insert_business_user(db_session, b1, u_a, "owner")
+                    await db_session.execute(
+                        _RAW_INSERT_BU,
+                        {"b_id": b1, "u_id": u_a, "role": "owner"}
+                    )
             _assert_sqlstate(exc_unset.value, "42501")
 
             # app.current_business_id vacío debe rechazarse con 42501
             await db_session.execute(text("SET LOCAL app.current_business_id = '';"))
             with pytest.raises(DBAPIError) as exc_empty:
                 async with db_session.begin_nested():
-                    await _insert_business_user(db_session, b1, u_a, "owner")
+                    await db_session.execute(
+                        _RAW_INSERT_BU,
+                        {"b_id": b1, "u_id": u_a, "role": "owner"}
+                    )
             _assert_sqlstate(exc_empty.value, "42501")
         finally:
             await tx.rollback()
