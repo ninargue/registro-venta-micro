@@ -185,6 +185,42 @@ def _asyncpg_dsn(url: str) -> str:
 # ── Supabase Auth ──────────────────────────────────────────────────────────────
 
 
+async def _wait_for_auth_ready(
+    base_url: str,
+    *,
+    timeout_secs: int = 90,
+    poll_interval: float = 2.0,
+) -> None:
+    """Espera hasta que el servicio GoTrue este listo para recibir peticiones.
+
+    Supabase Kong y GoTrue pueden tardar en iniciar (especialmente en Windows).
+    Se sondea /auth/v1/health cada 2 segundos hasta timeout_secs.
+    """
+    import asyncio
+
+    health_url = f"{base_url}/auth/v1/health"
+    deadline = asyncio.get_event_loop().time() + timeout_secs
+    attempt = 0
+    async with httpx.AsyncClient(timeout=5.0) as client:
+        while True:
+            attempt += 1
+            try:
+                r = await client.get(health_url)
+                if r.status_code == 200:
+                    if attempt > 1:
+                        print(f"  (Auth listo despues de {attempt} intentos)")
+                    return
+            except httpx.ConnectError, httpx.ReadTimeout, httpx.ConnectTimeout:
+                pass
+            if asyncio.get_event_loop().time() >= deadline:
+                raise RuntimeError(
+                    f"\n\n  [ERROR] Supabase Auth no respondio en {timeout_secs}s.\n"
+                    f"          Verifica que Docker Desktop este iniciado y\n"
+                    f"          ejecuta: make db-up\n"
+                )
+            await asyncio.sleep(poll_interval)
+
+
 async def _upsert_auth_user(
     client: httpx.AsyncClient,
     base_url: str,
@@ -254,10 +290,12 @@ async def seed() -> None:
     )
 
     # ── 1. Crear usuarios en Supabase Auth ─────────────────────────────────────
-    print("\n→ Creando usuarios en Supabase Auth...")
+    print("\n→ Esperando que Supabase Auth este listo...")
+    await _wait_for_auth_ready(supabase_url)
+    print("→ Creando usuarios en Supabase Auth...")
     user_ids: dict[str, uuid.UUID] = {}
 
-    async with httpx.AsyncClient(timeout=10.0) as http:
+    async with httpx.AsyncClient(timeout=30.0) as http:
         for u in USERS:
             uid = await _upsert_auth_user(http, supabase_url, service_key, u["email"])
             user_ids[u["email"]] = uid

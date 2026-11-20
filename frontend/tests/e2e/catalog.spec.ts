@@ -16,6 +16,9 @@ import { expect, test } from "@playwright/test";
 
 const TEST_RUN_ID = Date.now().toString(36);
 
+// El service worker de la PWA atiende los GET sin pasar por page.route; se bloquea para que los mocks apliquen.
+test.use({ serviceWorkers: "block" });
+
 test("R-15: camino crítico — login → /catalog → agregar producto → verificar en lista", async ({
   page,
 }) => {
@@ -24,6 +27,7 @@ test("R-15: camino crítico — login → /catalog → agregar producto → veri
   const productId = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
 
   let productCreated = false;
+  let loggedIn = false;
 
   const user = {
     id: "11111111-1111-4111-8111-111111111111",
@@ -45,6 +49,18 @@ test("R-15: camino crítico — login → /catalog → agregar producto → veri
     const url = new URL(request.url());
 
     if (url.pathname === "/api/v1/auth/me" && request.method() === "GET") {
+      if (!loggedIn) {
+        await route.fulfill({
+          status: 401,
+          contentType: "application/json",
+          body: JSON.stringify({
+            code: "UNAUTHENTICATED",
+            message: "No autenticado",
+            details: null,
+          }),
+        });
+        return;
+      }
       await route.fulfill({
         status: 200,
         contentType: "application/json",
@@ -58,6 +74,7 @@ test("R-15: camino crítico — login → /catalog → agregar producto → veri
     }
 
     if (url.pathname === "/api/v1/auth/login" && request.method() === "POST") {
+      loggedIn = true;
       await route.fulfill({
         status: 200,
         contentType: "application/json",
