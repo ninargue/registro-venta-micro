@@ -13,11 +13,13 @@ from app.core.schemas import ErrorResponse
 from app.modules.auth.router import router as auth_router
 from app.modules.catalog.router import router as catalog_router
 from app.modules.health.router import router as health_router
+from app.modules.reports.router import router as reports_router
+from app.modules.sales.router import router as sales_router
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
-    """Valida configuración crítica y gestiona el cliente HTTP compartido."""
+    """Valida configuraciÃ³n crÃ­tica y gestiona el cliente HTTP compartido."""
     settings = get_settings()
     validate_runtime_settings(settings)
     http_client = httpx.AsyncClient(timeout=httpx.Timeout(10.0, connect=5.0))
@@ -54,7 +56,7 @@ async def validation_exception_handler(
     _request: Request,
     exc: RequestValidationError,
 ) -> JSONResponse:
-    """Unifica errores de validación Pydantic (422) al esquema plano ErrorResponse."""
+    """Unifica errores de validaciÃ³n Pydantic (422) al esquema plano ErrorResponse."""
     payload = ErrorResponse(
         code="VALIDATION_ERROR",
         message="Validation error",
@@ -69,3 +71,5 @@ async def validation_exception_handler(
 app.include_router(health_router, prefix="/api/v1")
 app.include_router(auth_router, prefix="/api/v1")
 app.include_router(catalog_router, prefix="/api/v1")
+app.include_router(reports_router, prefix="/api/v1")
+app.include_router(sales_router, prefix="/api/v1")

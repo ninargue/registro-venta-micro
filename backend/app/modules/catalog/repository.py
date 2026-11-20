@@ -4,7 +4,7 @@ from contextlib import asynccontextmanager
 from decimal import Decimal
 from typing import Any
 
-from sqlalchemy import ColumnElement, func, insert, or_, select, update
+from sqlalchemy import ColumnElement, Numeric, case, func, insert, literal, or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.base import Base  # noqa: F401 - asegura inicialización de Base antes de models
@@ -113,3 +113,72 @@ class CatalogRepository:
         )
         items = list((await self._session.execute(items_stmt)).scalars().all())
         return items, total
+
+    async def lock_products_for_sale(
+        self,
+        *,
+        business_id: uuid.UUID,
+        product_ids: list[uuid.UUID],
+    ) -> dict[uuid.UUID, Product]:
+        """Bloquea productos del comercio en orden determinista (ORDER BY id ASC FOR UPDATE)."""
+        if not product_ids:
+            return {}
+        ordered_ids = sorted(set(product_ids))
+        stmt = (
+            select(Product)
+            .where(
+                Product.business_id == business_id,
+                Product.id.in_(ordered_ids),
+            )
+            .order_by(Product.id.asc())
+            .with_for_update()
+        )
+        rows = (await self._session.execute(stmt)).scalars().all()
+        return {product.id: product for product in rows}
+
+    async def deduct_stock_batch(
+        self,
+        *,
+        business_id: uuid.UUID,
+        deductions: dict[uuid.UUID, Decimal],
+    ) -> None:
+        """Descuenta stock en un único UPDATE masivo con CASE WHEN filtrado por business_id."""
+        if not deductions:
+            return
+        ordered_ids = sorted(deductions)
+        deduction_case = case(
+            *[
+                (
+                    Product.id == product_id,
+                    literal(deductions[product_id], type_=Numeric(12, 2)),
+                )
+                for product_id in ordered_ids
+            ],
+            else_=literal(Decimal("0.00"), type_=Numeric(12, 2)),
+        )
+        stmt = (
+            update(Product)
+            .where(
+                Product.business_id == business_id,
+                Product.id.in_(ordered_ids),
+            )
+            .values(stock=Product.stock - deduction_case)
+        )
+        await self._session.execute(stmt)
+
+    async def get_product_names_by_ids(
+        self,
+        *,
+        business_id: uuid.UUID,
+        product_ids: list[uuid.UUID],
+    ) -> dict[uuid.UUID, str]:
+        """Obtiene nombres de productos del comercio por sus IDs bajo contexto RLS."""
+        if not product_ids:
+            return {}
+        unique_ids = sorted(set(product_ids))
+        stmt = select(Product.id, Product.name).where(
+            Product.business_id == business_id,
+            Product.id.in_(unique_ids),
+        )
+        rows = (await self._session.execute(stmt)).all()
+        return {row.id: row.name for row in rows}
