@@ -148,27 +148,31 @@
 
 ## Capa 7: Tests (Tests en Rojo — design-blind)
 
-- [ ] **T-21** Crear `frontend/src/test/catalog/product-list.test.tsx` — escenarios R-01, R-02, R-03, R-04, R-14:
+- [x] **T-21** Crear `frontend/src/test/catalog/product-list.test.tsx` — escenarios R-01, R-02, R-03, R-04, R-14:
   - Renderiza heading "Catálogo de productos"
   - Muestra lista con nombres de productos del fixture
   - Estado de carga: `aria-busy` o `role="status"` visible
   - Estado vacío: texto observable de vacío visible
   - Búsqueda: escribir en campo "Buscar producto" dispara query con `q`
   - Error de red: `role="alert"` con mensaje de error visible
+  - **Ruta real:** `frontend/src/test/catalog/product-list.test.tsx`
 
-- [ ] **T-22** Crear `frontend/src/test/catalog/product-create.test.tsx` — escenarios R-05, R-06, R-07, R-08, R-09:
+- [x] **T-22** Crear `frontend/src/test/catalog/product-create.test.tsx` — escenarios R-05, R-06, R-07, R-08, R-09:
   - Formulario en `/catalog/new` renderiza campos requeridos
   - Envío con nombre vacío: NO invoca `POST`, campo con `aria-invalid="true"`
   - Envío con precio cero: NO invoca `POST`, mensaje de error
   - Envío válido: botón deshabilitado durante petición, navega a `/catalog` en éxito
   - Respuesta 409: mensaje `role="alert"` sobre código duplicado
   - Respuesta 422: mensaje `role="alert"` del servidor
+  - Incluye test de `ProductForm` (B4: `e.preventDefault` verificado)
+  - **Ruta real:** `frontend/src/test/catalog/product-create.test.tsx`
 
-- [ ] **T-23** Crear `frontend/src/test/catalog/product-edit.test.tsx` — escenarios R-10, R-11, R-12, R-13:
+- [x] **T-23** Crear `frontend/src/test/catalog/product-edit.test.tsx` — escenarios R-10, R-11, R-12, R-13:
   - Formulario en `/catalog/:id/edit` pre-cargado con datos del producto
   - Envío válido: navega a `/catalog` en éxito
   - Respuesta 404: mensaje `role="alert"` de no encontrado
-  - Cancelar: navega a `/catalog` sin petición
+  - Cancelar: navega a `/catalog` sin petición (desde `/catalog/new` y desde `/catalog/:id/edit`)
+  - **Ruta real:** `frontend/src/test/catalog/product-edit.test.tsx`
 
 - [x] **T-24** Crear `frontend/tests/e2e/catalog.spec.ts` — camino crítico R-15:
   - Login como dueño autenticado
