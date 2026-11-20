@@ -58,3 +58,10 @@ asyncio_default_fixture_loop_scope = "function"
 testpaths = ["tests"]
 addopts = "--cov=app --cov-report=term-missing"
 pythonpath = ["."]
+markers = [
+    "auth: tests de autenticación y onboarding",
+    "catalogo: tests del módulo de catálogo de productos",
+    "negocios: tests del módulo de negocios y usuarios",
+    "ventas: tests del módulo de ventas, items y pagos",
+    "reportes: tests del módulo de reportes diarios",
+]

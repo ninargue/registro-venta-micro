@@ -12,6 +12,8 @@ import jwt
 import pytest
 from sqlalchemy import event, text
 from sqlalchemy.engine import Engine
+
+pytestmark = pytest.mark.ventas
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 
 from app.core.config import get_settings

@@ -10,6 +10,8 @@ import jwt
 import pytest
 from sqlalchemy import event, text
 from sqlalchemy.engine import Engine
+
+pytestmark = pytest.mark.catalogo
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings

@@ -3,6 +3,8 @@ import uuid
 import pytest
 from sqlalchemy import text
 from sqlalchemy.exc import DBAPIError, IntegrityError
+
+pytestmark = pytest.mark.negocios
 from sqlalchemy.ext.asyncio import AsyncSession
 
 

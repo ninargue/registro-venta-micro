@@ -4,6 +4,8 @@ from decimal import Decimal
 import pytest
 from sqlalchemy import text
 from sqlalchemy.exc import DBAPIError, IntegrityError
+
+pytestmark = pytest.mark.ventas
 from sqlalchemy.ext.asyncio import AsyncSession
 
 
