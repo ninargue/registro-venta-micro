@@ -8,7 +8,12 @@ export interface CatalogPageProps {
   isOffline?: boolean;
 }
 
-export function CatalogPage({ children, onAddProduct, isLoading = false, isOffline = false }: CatalogPageProps) {
+export function CatalogPage({
+  children,
+  onAddProduct,
+  isLoading = false,
+  isOffline = false,
+}: CatalogPageProps) {
   return (
     <main className="mx-auto max-w-6xl px-4 py-8">
       <div className="mb-6 flex items-center justify-between gap-4">

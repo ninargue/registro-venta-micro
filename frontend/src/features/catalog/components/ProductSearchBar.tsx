@@ -13,7 +13,9 @@ export function ProductSearchBar({ value, onChange, disabled = false }: ProductS
       label="Buscar producto"
       type="text"
       value={value}
-      onChange={(e) => { onChange(e.target.value); }}
+      onChange={(e) => {
+        onChange(e.target.value);
+      }}
       placeholder="Buscar por nombre o SKU..."
       disabled={disabled}
     />

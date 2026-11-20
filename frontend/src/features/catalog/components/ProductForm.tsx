@@ -2,7 +2,12 @@ import { useState, type SyntheticEvent } from "react";
 import { Button } from "@/shared/ui/Button";
 import { ErrorAlert } from "@/shared/ui/ErrorAlert";
 import { TextField } from "@/shared/ui/TextField";
-import type { FieldErrors, ProductCreate, ProductResponse, ProductUpdate } from "@/features/catalog/types";
+import type {
+  FieldErrors,
+  ProductCreate,
+  ProductResponse,
+  ProductUpdate,
+} from "@/features/catalog/types";
 
 export interface ProductFormProps {
   mode: "create" | "edit";
@@ -46,10 +51,7 @@ export function ProductForm({
   const hasNameError = fieldErrors?.["name"] !== undefined;
   const hasPriceError = fieldErrors?.["sale_price"] !== undefined;
 
-  const firstError =
-    errorMessage ??
-    (fieldErrors ? Object.values(fieldErrors)[0] : null) ??
-    null;
+  const firstError = errorMessage ?? (fieldErrors ? Object.values(fieldErrors)[0] : null) ?? null;
 
   return (
     <form
@@ -64,7 +66,9 @@ export function ProductForm({
         id="product-name"
         label="Nombre"
         value={name}
-        onChange={(e) => { setName(e.target.value); }}
+        onChange={(e) => {
+          setName(e.target.value);
+        }}
         required
         hasError={hasNameError}
         aria-invalid={hasNameError ? true : undefined}
@@ -78,7 +82,9 @@ export function ProductForm({
         type="text"
         inputMode="decimal"
         value={salePrice}
-        onChange={(e) => { setSalePrice(e.target.value); }}
+        onChange={(e) => {
+          setSalePrice(e.target.value);
+        }}
         required
         hasError={hasPriceError}
         aria-invalid={hasPriceError ? true : undefined}
@@ -90,7 +96,9 @@ export function ProductForm({
         id="product-code"
         label="Código SKU"
         value={code}
-        onChange={(e) => { setCode(e.target.value); }}
+        onChange={(e) => {
+          setCode(e.target.value);
+        }}
         disabled={isLoading}
       />
 
@@ -100,7 +108,9 @@ export function ProductForm({
         type="text"
         inputMode="decimal"
         value={costPrice}
-        onChange={(e) => { setCostPrice(e.target.value); }}
+        onChange={(e) => {
+          setCostPrice(e.target.value);
+        }}
         disabled={isLoading}
       />
 
@@ -110,7 +120,9 @@ export function ProductForm({
         type="text"
         inputMode="decimal"
         value={stock}
-        onChange={(e) => { setStock(e.target.value); }}
+        onChange={(e) => {
+          setStock(e.target.value);
+        }}
         disabled={isLoading}
       />
 
@@ -125,12 +137,7 @@ export function ProductForm({
           {submitLabel}
         </Button>
 
-        <Button
-          type="button"
-          variant="secondary"
-          onClick={onCancel}
-          disabled={isLoading}
-        >
+        <Button type="button" variant="secondary" onClick={onCancel} disabled={isLoading}>
           Cancelar
         </Button>
       </div>

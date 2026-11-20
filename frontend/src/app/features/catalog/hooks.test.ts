@@ -303,7 +303,9 @@ describe("useProducts — consistencia de clave y persistencia offline", () => {
       expect(result.current.isSuccess).toBe(true);
     });
 
-    expect(queryClient.getQueryCache().findAll({ queryKey: ["catalog", "products"] })).toHaveLength(1);
+    expect(queryClient.getQueryCache().findAll({ queryKey: ["catalog", "products"] })).toHaveLength(
+      1,
+    );
   });
 
   it("persiste los items en Dexie con bulkPut tras un fetch exitoso", async () => {
@@ -318,5 +320,3 @@ describe("useProducts — consistencia de clave y persistencia offline", () => {
     bulkPutSpy.mockRestore();
   });
 });
-
-

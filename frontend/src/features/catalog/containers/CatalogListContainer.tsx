@@ -20,8 +20,12 @@ export function CatalogListContainer() {
   const [isOffline, setIsOffline] = useState(!navigator.onLine);
 
   useEffect(() => {
-    const handleOnline = () => { setIsOffline(false); };
-    const handleOffline = () => { setIsOffline(true); };
+    const handleOnline = () => {
+      setIsOffline(false);
+    };
+    const handleOffline = () => {
+      setIsOffline(true);
+    };
 
     window.addEventListener("online", handleOnline);
     window.addEventListener("offline", handleOffline);
@@ -76,7 +80,12 @@ export function CatalogListContainer() {
       <CatalogPage onAddProduct={handleAddProduct}>
         <div className="flex flex-col gap-4">
           <ErrorAlert message={error.message} />
-          <Button variant="secondary" onClick={() => { void refetch(); }}>
+          <Button
+            variant="secondary"
+            onClick={() => {
+              void refetch();
+            }}
+          >
             Reintentar
           </Button>
         </div>
@@ -89,20 +98,12 @@ export function CatalogListContainer() {
       <div className="flex flex-col gap-4">
         <CatalogOfflineBanner isOffline={isOffline} />
 
-        <ProductSearchBar
-          value={searchText}
-          onChange={handleSearchChange}
-          disabled={isOffline}
-        />
+        <ProductSearchBar value={searchText} onChange={handleSearchChange} disabled={isOffline} />
 
         {products.length === 0 ? (
           <CatalogEmptyState />
         ) : (
-          <ProductGrid
-            products={products}
-            onEdit={handleEditProduct}
-            disabled={isOffline}
-          />
+          <ProductGrid products={products} onEdit={handleEditProduct} disabled={isOffline} />
         )}
       </div>
     </CatalogPage>

@@ -20,9 +20,7 @@ export function ProductCard({ product, onEdit, disabled = false }: ProductCardPr
       ].join(" ")}
     >
       <div className="flex flex-col gap-1">
-        <h3
-          className="text-base font-semibold text-[var(--color-text-light)] dark:text-[var(--color-text-dark)]"
-        >
+        <h3 className="text-base font-semibold text-[var(--color-text-light)] dark:text-[var(--color-text-dark)]">
           {product.name}
         </h3>
         {product.code ? (
@@ -34,9 +32,7 @@ export function ProductCard({ product, onEdit, disabled = false }: ProductCardPr
 
       <div className="flex items-center justify-between gap-2">
         <div className="flex flex-col gap-0.5">
-          <span
-            className="text-lg font-bold text-[var(--color-text-light)] dark:text-[var(--color-text-dark)]"
-          >
+          <span className="text-lg font-bold text-[var(--color-text-light)] dark:text-[var(--color-text-dark)]">
             {product.sale_price}
           </span>
           <span
@@ -50,7 +46,9 @@ export function ProductCard({ product, onEdit, disabled = false }: ProductCardPr
 
         <Button
           variant="secondary"
-          onClick={() => { onEdit(product.id); }}
+          onClick={() => {
+            onEdit(product.id);
+          }}
           aria-label={`Editar ${product.name}`}
           disabled={disabled}
         >

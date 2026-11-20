@@ -1,9 +1,6 @@
 export function CatalogEmptyState() {
   return (
-    <div
-      className="flex flex-col items-center gap-6 py-16 text-center"
-      aria-label="Catálogo vacío"
-    >
+    <div className="flex flex-col items-center gap-6 py-16 text-center" aria-label="Catálogo vacío">
       <div className="flex flex-col gap-2">
         <p className="text-lg font-semibold text-[var(--color-text-light)] dark:text-[var(--color-text-dark)]">
           No hay productos en el catálogo

@@ -148,14 +148,10 @@ describe("R-02: Lista vacía", () => {
     renderCatalog();
 
     // Empty state text
-    expect(
-      await screen.findByText(/no hay productos/i),
-    ).toBeInTheDocument();
+    expect(await screen.findByText(/no hay productos/i)).toBeInTheDocument();
 
     // Action to add product
-    expect(
-      screen.getByRole("button", { name: /agregar producto/i }),
-    ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /agregar producto/i })).toBeInTheDocument();
   });
 });
 
@@ -246,9 +242,7 @@ describe("R-04: Error de red o servidor en listado", () => {
     expect(alert).toBeInTheDocument();
 
     // Retry action
-    expect(
-      screen.getByRole("button", { name: /reintentar/i }),
-    ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /reintentar/i })).toBeInTheDocument();
   });
 
   it("muestra role='alert' ante HTTP 500 con acción de reintento", async () => {
@@ -398,10 +392,7 @@ describe("R-07: Alta exitosa de producto", () => {
     server.use(
       http.post("/api/v1/catalog/products", async () => {
         await pendingPost;
-        return HttpResponse.json(
-          { ...DEFAULT_PRODUCT_1, name: "Nuevo Producto" },
-          { status: 201 },
-        );
+        return HttpResponse.json({ ...DEFAULT_PRODUCT_1, name: "Nuevo Producto" }, { status: 201 });
       }),
     );
 
@@ -421,8 +412,7 @@ describe("R-07: Alta exitosa de producto", () => {
     // aria-busy="true" or disabled during request
     await waitFor(() => {
       expect(
-        submitButton.hasAttribute("disabled") ||
-          submitButton.getAttribute("aria-busy") === "true",
+        submitButton.hasAttribute("disabled") || submitButton.getAttribute("aria-busy") === "true",
       ).toBe(true);
     });
 
@@ -568,8 +558,7 @@ describe("R-11: Edición exitosa de producto", () => {
     // Disabled or aria-busy during request
     await waitFor(() => {
       expect(
-        submitButton.hasAttribute("disabled") ||
-          submitButton.getAttribute("aria-busy") === "true",
+        submitButton.hasAttribute("disabled") || submitButton.getAttribute("aria-busy") === "true",
       ).toBe(true);
     });
 
@@ -606,9 +595,7 @@ describe("R-12: Error HTTP 404 en edición — Producto no encontrado", () => {
     await user.clear(nameField);
     await user.type(nameField, "Nombre Nuevo");
 
-    await user.click(
-      screen.getByRole("button", { name: /guardar|actualizar|editar producto/i }),
-    );
+    await user.click(screen.getByRole("button", { name: /guardar|actualizar|editar producto/i }));
 
     expect(await screen.findByRole("alert")).toBeInTheDocument();
 
@@ -706,7 +693,9 @@ describe("R-14: Modo offline — lista servida desde caché Dexie", () => {
     // Offline notice
     const offlineNotice = await screen.findByText(/Mostrando datos guardados|sin conexión/i);
     expect(offlineNotice).toBeInTheDocument();
-    expect(await screen.findByRole("status")).toHaveTextContent(/Mostrando datos guardados|sin conexión/i);
+    expect(await screen.findByRole("status")).toHaveTextContent(
+      /Mostrando datos guardados|sin conexión/i,
+    );
 
     // Add button disabled in offline mode
     const addButton = screen.queryByRole("button", {
@@ -717,4 +706,3 @@ describe("R-14: Modo offline — lista servida desde caché Dexie", () => {
     }
   });
 });
-
