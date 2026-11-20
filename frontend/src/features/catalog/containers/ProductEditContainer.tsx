@@ -22,7 +22,8 @@ export function ProductEditContainer() {
   const [notFound, setNotFound] = useState(false);
 
   const product = listData?.items.find((p) => p.id === productId);
-  const productNotFoundAfterLoad = !isListLoading && listData !== undefined && !product && !notFound;
+  const productNotFoundAfterLoad =
+    !isListLoading && listData !== undefined && !product && !notFound;
 
   const handleSubmit = (data: ProductCreate | ProductUpdate) => {
     if (!productId) return;

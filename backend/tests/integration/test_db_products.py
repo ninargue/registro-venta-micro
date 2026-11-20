@@ -967,7 +967,8 @@ async def test_authenticated_and_anon_cannot_access_or_truncate_products(
                         getattr(orig, "__cause__", None), "sqlstate", None
                     )
                     assert sqlstate in ("42501", "42704"), (
-                        f"Expected 42501/42704 switching to role {role!r}, got {sqlstate!r}: {exc_role}"
+                        f"Expected 42501/42704 switching to role {role!r},"
+                        f" got {sqlstate!r}: {exc_role}"
                     )
 
                 if not role_switched:
