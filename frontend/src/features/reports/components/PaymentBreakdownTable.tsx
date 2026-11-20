@@ -54,8 +54,6 @@ export function PaymentBreakdownTable({
               const rawAmount = paymentBreakdown[key];
               const formattedAmount = formatCurrencyFromDecimal(rawAmount);
               const sharePercentage = calculatePaymentSharePercentage(rawAmount, totalSales);
-              const isFullShareNonZero =
-                sharePercentage === "100.00%" && formattedAmount !== "$0,00";
 
               return (
                 <tr
@@ -69,14 +67,7 @@ export function PaymentBreakdownTable({
                     {label}
                   </th>
                   <td className="py-3 pr-4 font-semibold text-text-light dark:text-text-dark">
-                    {isFullShareNonZero ? (
-                      <>
-                        {formattedAmount.slice(0, 1)}
-                        <span>{formattedAmount.slice(1)}</span>
-                      </>
-                    ) : (
-                      formattedAmount
-                    )}
+                    {formattedAmount}
                   </td>
                   <td className="py-3 text-text-muted-light dark:text-text-muted-dark">
                     {sharePercentage}

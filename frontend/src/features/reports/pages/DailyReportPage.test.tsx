@@ -144,7 +144,12 @@ describe("DailyReportPage — Integración Design-Blind contra MSW", () => {
     const dateInput = screen.getByLabelText("Fecha del reporte");
     fireEvent.change(dateInput, { target: { value: "2026-11-18" } });
 
-    expect(await screen.findByText("$12.000,00")).toBeInTheDocument();
+    const kpiRegion = await screen.findByRole("region", {
+      name: "Indicadores clave del día",
+    });
+    expect(within(kpiRegion).getByText("$12.000,00")).toBeInTheDocument();
+    const cashRow = screen.getByRole("row", { name: /Efectivo/i });
+    expect(within(cashRow).getByText("$12.000,00")).toBeInTheDocument();
     expect(screen.getByText("$4.000,00")).toBeInTheDocument();
     expect(screen.getByText("$8.000,00")).toBeInTheDocument();
     expect(dateInput).toHaveValue("2026-11-18");
