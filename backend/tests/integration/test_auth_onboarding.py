@@ -17,6 +17,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import get_settings
 from app.main import app
 
+pytestmark = pytest.mark.auth
+
 TEST_SUPABASE_URL = "https://supabase.test.local"
 TEST_SUPABASE_ANON_KEY = "test-supabase-anon-key"
 TEST_JWT_SECRET = "test-jwt-secret-key-for-integration-tests-32b"
@@ -86,6 +88,10 @@ async def _seed_business(
     country: str = "AR",
     timezone: str = "America/Argentina/Buenos_Aires",
 ) -> None:
+    # Migration 0004 hardened businesses_onboarding_insert:
+    # requires current_user_id + current_business_id.
+    await db_session.execute(text(f"SET LOCAL app.current_user_id = '{uuid.uuid4()}';"))
+    await db_session.execute(text(f"SET LOCAL app.current_business_id = '{business_id}';"))
     await db_session.execute(
         text(
             """
@@ -103,6 +109,10 @@ async def _seed_business_user(
     user_id: str,
     role: str = "owner",
 ) -> None:
+    # Migration 0004 hardened business_users_insert_own_user:
+    # requires user_id + business_id GUCs.
+    await db_session.execute(text(f"SET LOCAL app.current_user_id = '{user_id}';"))
+    await db_session.execute(text(f"SET LOCAL app.current_business_id = '{business_id}';"))
     await db_session.execute(
         text(
             """
@@ -353,6 +363,10 @@ async def test_onboarding_success_with_country_timezone_resolution(
         assert claims["role"] == "owner"
 
         async with db_session.begin():
+            await db_session.execute(text(f"SET LOCAL app.current_user_id = '{user_id}';"))
+            await db_session.execute(
+                text(f"SET LOCAL app.current_business_id = '{created_business_id}';")
+            )
             bu_row = (
                 await db_session.execute(
                     text("SELECT business_id, role FROM business_users WHERE user_id = :u"),
@@ -479,6 +493,10 @@ async def test_onboarding_duplicate_business_returns_409(
         assert response.json()["code"] == "BUSINESS_ALREADY_EXISTS"
 
         async with db_session.begin():
+            await db_session.execute(text(f"SET LOCAL app.current_user_id = '{user_id}';"))
+            await db_session.execute(
+                text(f"SET LOCAL app.current_business_id = '{existing_business_id}';")
+            )
             count_bu = (
                 await db_session.execute(
                     text("SELECT count(*) FROM business_users WHERE user_id = :u"),
@@ -523,6 +541,9 @@ async def test_onboarding_concurrent_requests_enforce_single_business_no_orphans
         created_ids.append(winner.json()["id"])
 
         async with db_session.begin():
+            winner_id = winner.json()["id"]
+            await db_session.execute(text(f"SET LOCAL app.current_user_id = '{user_id}';"))
+            await db_session.execute(text(f"SET LOCAL app.current_business_id = '{winner_id}';"))
             bu_count = (
                 await db_session.execute(
                     text("SELECT count(*) FROM business_users WHERE user_id = :u"),

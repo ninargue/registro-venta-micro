@@ -59,6 +59,8 @@ run() {
 }
 
 if [ "$backend_changed" = 1 ]; then
+	run "backend: ruff format" uv run --directory backend ruff format --check .
+	run "backend: ruff check"  uv run --directory backend ruff check .
 	run "backend: mypy app"    uv run --directory backend mypy app
 	run "backend: pytest unit" uv run --directory backend pytest tests/unit
 fi

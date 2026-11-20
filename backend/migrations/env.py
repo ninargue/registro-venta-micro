@@ -30,8 +30,21 @@ def include_name(name, type_, parent_names):
 
 
 def get_url() -> str:
-    """URL de la base desde la configuración de la app; nunca escrita en alembic.ini."""
-    return get_settings().database_url
+    """URL admin (postgres superuser) para migraciones; nunca escrita en alembic.ini.
+
+    Se usa DATABASE_ADMIN_URL en lugar de DATABASE_URL porque el rol app_runtime
+    no tiene permisos para crear ni modificar tablas de sistema como alembic_version.
+    Las migraciones siempre corren como postgres (superusuario).
+    """
+    settings = get_settings()
+    if settings.database_admin_url:
+        return settings.database_admin_url
+    raise RuntimeError(
+        "\n\n  [ERROR] DATABASE_ADMIN_URL no esta configurado en backend/.env\n"
+        "          Las migraciones requieren el superusuario postgres.\n"
+        "          Agrega en backend/.env:\n"
+        "          DATABASE_ADMIN_URL=postgresql+asyncpg://postgres:postgres@127.0.0.1:54422/postgres\n"
+    )
 
 
 def run_migrations_offline() -> None:

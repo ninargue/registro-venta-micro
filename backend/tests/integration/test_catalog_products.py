@@ -16,6 +16,8 @@ from app.core.config import get_settings
 from app.core.db import get_tenant_db
 from app.main import app
 
+pytestmark = pytest.mark.catalogo
+
 TEST_JWT_SECRET = "test-jwt-secret-key-for-catalog-tests-32b"
 CATALOG_PRODUCTS_URL = "/api/v1/catalog/products"
 
@@ -57,6 +59,10 @@ async def _seed_business(
     business_id: str,
     name: str = "Kiosco Catalogo",
 ) -> None:
+    # Migration 0004 hardened businesses_onboarding_insert:
+    # requires current_user_id + current_business_id.
+    await db_session.execute(text(f"SET LOCAL app.current_user_id = '{uuid.uuid4()}';"))
+    await db_session.execute(text(f"SET LOCAL app.current_business_id = '{business_id}';"))
     await db_session.execute(
         text(
             """
@@ -74,6 +80,9 @@ async def _seed_business_user(
     user_id: str,
     role: str = "owner",
 ) -> None:
+    # Migration 0004 hardened business_users_insert_own_user: requires user_id + business_id GUCs.
+    await db_session.execute(text(f"SET LOCAL app.current_user_id = '{user_id}';"))
+    await db_session.execute(text(f"SET LOCAL app.current_business_id = '{business_id}';"))
     await db_session.execute(
         text(
             """
@@ -98,6 +107,9 @@ async def _seed_product(
     product_id: str | None = None,
 ) -> str:
     pid = product_id or str(uuid.uuid4())
+    # Migration 0004: requires current_user_id + current_business_id GUCs for products INSERT.
+    await db_session.execute(text(f"SET LOCAL app.current_user_id = '{uuid.uuid4()}';"))
+    await db_session.execute(text(f"SET LOCAL app.current_business_id = '{business_id}';"))
     await db_session.execute(
         text(
             """
@@ -221,6 +233,7 @@ async def test_create_product_with_all_attributes(
         )
 
         async with db_session.begin():
+            await db_session.execute(text(f"SET LOCAL app.current_business_id = '{business_id}';"))
             row = (
                 (
                     await db_session.execute(
@@ -344,6 +357,7 @@ async def test_create_same_product_code_across_distinct_businesses(
         assert body["code"] == "SHARED-01"
 
         async with db_session.begin():
+            await db_session.execute(text(f"SET LOCAL app.current_business_id = '{business_b}';"))
             row = (
                 (
                     await db_session.execute(
@@ -726,8 +740,8 @@ async def test_list_active_products_ordered_deterministically_with_negative_stoc
     """Scenario: List active products ordered deterministically by name and id."""
     user_id = str(uuid.uuid4())
     business_id = str(uuid.uuid4())
-    id_low = "00000000-0000-0000-0000-000000000001"
-    id_high = "00000000-0000-0000-0000-000000000002"
+    _uuid_a, _uuid_b = str(uuid.uuid4()), str(uuid.uuid4())
+    id_low, id_high = sorted([_uuid_a, _uuid_b])
 
     async with db_session.begin():
         await _seed_business(db_session, business_id)
@@ -1123,6 +1137,7 @@ async def test_tenant_isolation_rls_and_ignore_body_business_id(
         assert post_resp.status_code == 201
         created_id = post_resp.json()["id"]
         async with db_session.begin():
+            await db_session.execute(text(f"SET LOCAL app.current_business_id = '{business_a}';"))
             row = (
                 (
                     await db_session.execute(
@@ -1304,6 +1319,7 @@ async def test_patch_product_partial_update_preserves_omitted_fields_including_n
         )
 
         async with db_session.begin():
+            await db_session.execute(text(f"SET LOCAL app.current_business_id = '{business_id}';"))
             row = (
                 (
                     await db_session.execute(
@@ -1822,6 +1838,7 @@ async def test_patch_cross_tenant_product_id_returns_404_and_leaves_target_unmod
         )
 
         async with db_session.begin():
+            await db_session.execute(text(f"SET LOCAL app.current_business_id = '{business_b}';"))
             row = (
                 (
                     await db_session.execute(
@@ -1884,6 +1901,7 @@ async def test_patch_ignores_client_supplied_business_id_and_immutable_fields(
         assert body["sale_price"] == "1999.00"
 
         async with db_session.begin():
+            await db_session.execute(text(f"SET LOCAL app.current_business_id = '{business_a}';"))
             row = (
                 (
                     await db_session.execute(

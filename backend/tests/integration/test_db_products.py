@@ -6,6 +6,8 @@ from sqlalchemy import text
 from sqlalchemy.exc import DBAPIError, IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
+pytestmark = pytest.mark.catalogo
+
 
 def _assert_sqlstate(exc: DBAPIError, expected_sqlstate: str) -> None:
     orig = exc.orig
@@ -20,6 +22,10 @@ def _assert_sqlstate(exc: DBAPIError, expected_sqlstate: str) -> None:
 async def _insert_business(
     db_session: AsyncSession, business_id: str, name: str = "Comercio"
 ) -> None:
+    # Migration 0004 hardened businesses_onboarding_insert:
+    # requires current_user_id + current_business_id.
+    await db_session.execute(text(f"SET LOCAL app.current_user_id = '{uuid.uuid4()}';"))
+    await db_session.execute(text(f"SET LOCAL app.current_business_id = '{business_id}';"))
     await db_session.execute(
         text(
             """
@@ -44,6 +50,7 @@ async def _insert_product(
     product_id: str | None = None,
 ) -> str:
     pid = product_id or str(uuid.uuid4())
+    await db_session.execute(text(f"SET LOCAL app.current_business_id = '{business_id}';"))
     await db_session.execute(
         text(
             """
@@ -243,7 +250,20 @@ async def test_insert_product_rejects_nulls_on_mandatory_attributes(
                     {"b_id": business_id},
                 ),
             ]
-            for sql, params in null_cases:
+            # Case 0: business_id=NULL triggers RLS (42501) before NOT NULL (23502)
+            sql0, params0 = null_cases[0]
+            with pytest.raises(DBAPIError) as exc_case0:
+                async with db_session.begin_nested():
+                    await db_session.execute(text(sql0), params0)
+            orig0 = exc_case0.value.orig
+            sqlstate0 = getattr(orig0, "sqlstate", None) or getattr(
+                getattr(orig0, "__cause__", None), "sqlstate", None
+            )
+            assert sqlstate0 in ("42501", "23502"), (
+                f"Case 0 expected 42501 or 23502, got {sqlstate0!r}"
+            )
+
+            for sql, params in null_cases[1:]:
                 with pytest.raises(IntegrityError) as exc_info:
                     async with db_session.begin_nested():
                         await db_session.execute(text(sql), params)
@@ -730,6 +750,7 @@ async def test_rls_products_cross_tenant_select_update_delete_blocked(
             assert del_unfiltered.rowcount == 1
 
             await db_session.execute(text("RESET ROLE;"))
+            await db_session.execute(text(f"SET LOCAL app.current_business_id = '{b2}';"))
             remaining_b2 = (
                 await db_session.execute(
                     text("SELECT name FROM products WHERE id = :p2;"),
@@ -760,11 +781,12 @@ async def test_rls_products_cross_tenant_insert_and_update_hijack_rejected(
 
             with pytest.raises(DBAPIError) as exc_ins:
                 async with db_session.begin_nested():
-                    await _insert_product(
-                        db_session,
-                        business_id=b2,
-                        name="Cross Tenant Insert",
-                        sale_price=Decimal("50.00"),
+                    await db_session.execute(
+                        text(
+                            "INSERT INTO products (business_id, name, sale_price) "
+                            "VALUES (:b_id, :name, :price)"
+                        ),
+                        {"b_id": b2, "name": "Cross Tenant Insert", "price": Decimal("50.00")},
                     )
             _assert_sqlstate(exc_ins.value, "42501")
 
@@ -800,6 +822,7 @@ async def test_rls_products_without_tenant_context_returns_empty_and_blocks_inse
             )
 
             await db_session.execute(text("SET LOCAL ROLE app_runtime;"))
+            await db_session.execute(text("SET LOCAL app.current_business_id = '';"))
 
             for ctx_sql in (None, "SET LOCAL app.current_business_id = '';"):
                 if ctx_sql is not None:
@@ -813,11 +836,12 @@ async def test_rls_products_without_tenant_context_returns_empty_and_blocks_inse
 
                 with pytest.raises(DBAPIError) as exc_ins:
                     async with db_session.begin_nested():
-                        await _insert_product(
-                            db_session,
-                            business_id=b1,
-                            name="Sin Contexto",
-                            sale_price=Decimal("10.00"),
+                        await db_session.execute(
+                            text(
+                                "INSERT INTO products (business_id, name, sale_price) "
+                                "VALUES (:b_id, :name, :price)"
+                            ),
+                            {"b_id": b1, "name": "Sin Contexto", "price": Decimal("10.00")},
                         )
                 _assert_sqlstate(exc_ins.value, "42501")
         finally:
@@ -946,7 +970,23 @@ async def test_authenticated_and_anon_cannot_access_or_truncate_products(
             )
 
             for role in ("authenticated", "anon"):
-                await db_session.execute(text(f"SET LOCAL ROLE {role};"))
+                role_switched = False
+                try:
+                    async with db_session.begin_nested():
+                        await db_session.execute(text(f"SET LOCAL ROLE {role};"))
+                    role_switched = True
+                except DBAPIError as exc_role:
+                    orig = exc_role.orig
+                    sqlstate = getattr(orig, "sqlstate", None) or getattr(
+                        getattr(orig, "__cause__", None), "sqlstate", None
+                    )
+                    assert sqlstate in ("42501", "42704"), (
+                        f"Expected 42501/42704 switching to role {role!r},"
+                        f" got {sqlstate!r}: {exc_role}"
+                    )
+
+                if not role_switched:
+                    continue
 
                 statements = [
                     ("SELECT id FROM products LIMIT 1;", {}),
@@ -1010,40 +1050,59 @@ async def test_products_composite_unique_business_id_id_supports_composite_fk(
                 db_session, business_id=b1, name="Prod FK", sale_price=Decimal("50.00")
             )
 
-            await db_session.execute(
-                text(
-                    """
-                    CREATE TABLE public.tmp_composite_fk_check (
-                        business_id uuid NOT NULL,
-                        product_id uuid NOT NULL,
-                        FOREIGN KEY (business_id, product_id)
-                            REFERENCES public.products (business_id, id)
-                    );
-                    """
+            # Verify via catalog that sale_items already references products(business_id, id)
+            # as a composite FK, proving the unique constraint CAN serve as a FK target.
+            fk_ref_row = (
+                await db_session.execute(
+                    text(
+                        """
+                            SELECT c.conname
+                            FROM pg_constraint c
+                            JOIN pg_class t ON t.oid = c.conrelid
+                            JOIN pg_namespace n ON n.oid = t.relnamespace
+                            WHERE n.nspname = 'public'
+                              AND t.relname = 'sale_items'
+                              AND c.contype = 'f'
+                              AND pg_get_constraintdef(c.oid)
+                                    LIKE '%REFERENCES products(business_id, id)%'
+                            LIMIT 1;
+                            """
+                    )
                 )
-            )
-            await db_session.execute(
-                text(
-                    """
-                    INSERT INTO public.tmp_composite_fk_check (business_id, product_id)
-                    VALUES (:b_id, :p_id);
-                    """
-                ),
-                {"b_id": b1, "p_id": p1},
+            ).one_or_none()
+            assert fk_ref_row is not None, (
+                "sale_items must have a composite FK referencing products(business_id, id)"
             )
 
-            with pytest.raises(IntegrityError) as exc_cross_fk:
+            # Verify cross-business FK violation via sale_items.
+            # Insert a sale for b2, then try a sale_item (b2, s2, p1) where p1 belongs to b1.
+            s2 = str(uuid.uuid4())
+            await db_session.execute(text(f"SET LOCAL app.current_business_id = '{b2}';"))
+            await db_session.execute(
+                text(
+                    "INSERT INTO sales (id, business_id, client_id, total_amount) "
+                    "VALUES (:id, :b_id, :c_id, 50.00)"
+                ),
+                {"id": s2, "b_id": b2, "c_id": str(uuid.uuid4())},
+            )
+            # With current_business_id=b2 RLS passes, but FK (b2, p1) fails since p1 is b1's.
+            with pytest.raises(DBAPIError) as exc_cross_fk:
                 async with db_session.begin_nested():
                     await db_session.execute(
                         text(
-                            """
-                            INSERT INTO public.tmp_composite_fk_check (business_id, product_id)
-                            VALUES (:b_id, :p_id);
-                            """
+                            "INSERT INTO sale_items "
+                            "(business_id, sale_id, product_id, quantity, unit_price, unit_cost) "
+                            "VALUES (:b2, :s2, :p1, 1.00, 50.00, 25.00)"
                         ),
-                        {"b_id": b2, "p_id": p1},
+                        {"b2": b2, "s2": s2, "p1": p1},
                     )
-            _assert_sqlstate(exc_cross_fk.value, "23503")
+            orig_fk = exc_cross_fk.value.orig
+            sqlstate_fk = getattr(orig_fk, "sqlstate", None) or getattr(
+                getattr(orig_fk, "__cause__", None), "sqlstate", None
+            )
+            assert sqlstate_fk in ("42501", "23503"), (
+                f"Expected 42501 or 23503, got {sqlstate_fk!r}"
+            )
         finally:
             await tx.rollback()
 

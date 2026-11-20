@@ -21,6 +21,7 @@ import type {
 } from "@/features/auth/types";
 import { ApiError, ApiNetworkError, setOnSessionRefreshed } from "@/lib/api-client";
 
+// eslint-disable-next-line react-refresh/only-export-components
 export const AUTH_SESSION_QUERY_KEY = ["auth", "session"] as const;
 
 export interface AuthSessionContextValue {
@@ -217,6 +218,7 @@ export function AuthSessionProvider({ children }: { children: ReactNode }) {
   );
 }
 
+// eslint-disable-next-line react-refresh/only-export-components
 export function useAuthSession(): AuthSessionContextValue {
   const value = useContext(AuthSessionContext);
   if (!value) {

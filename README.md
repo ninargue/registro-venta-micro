@@ -114,44 +114,68 @@ flowchart LR
 
 ### **1.4. Instrucciones de instalación:**
 
-> Entrega 1 (0 % código): estos son los pasos **previstos** para el entorno local (Supabase CLI en Docker). Se validarán y ajustarán al crear los scaffolds en la Entrega 2.
+> **Requisitos previos:** Git, [Docker Desktop](https://www.docker.com/products/docker-desktop/) (debe estar iniciado), [Supabase CLI](https://supabase.com/docs/guides/local-development), Python 3.14, Node.js 26 y [fnm](https://github.com/Schniz/fnm) (gestiona la versión de Node leyendo `.nvmrc` automáticamente).
 
-**Requisitos:** Git, Docker, [Supabase CLI](https://supabase.com/docs/guides/local-development), Python 3.14, Node.js 26. Se recomienda [fnm](https://github.com/Schniz/fnm) para gestionar la versión de Node (lee `.nvmrc` automáticamente).
 
 ```bash
-# 1. Clonar e instalar las herramientas del repo
+# 1. Clonar e instalar dependencias
 git clone https://github.com/ninargue/registro-venta-micro.git
 cd registro-venta-micro
-npm install                     # instala los hooks de git (husky + lint-staged)
+make install   # hooks de git + uv sync + npm ci
+               # crea backend/.env desde .env.example si no existe
 
-# 2. Levantar Supabase local (Postgres 17, Auth y Storage en Docker)
-#    Usa el rango de puertos 544xx definido en supabase/config.toml (ver `supabase status`)
-supabase start
+# 2. Setup completo: Supabase, claves, migraciones y datos de prueba
+# IMPORTANTE: Docker Desktop debe estar iniciado antes de este paso
+make setup     # docker up → inyecta claves → alembic upgrade head → seed
 
-# 3. Variables de entorno
-#    Frontend: sin variables en desarrollo; el proxy de Vite reenvía /api al backend
-#    Backend: lleva claves (aunque sean locales), por eso se copia desde el ejemplo y no se versiona
-cp backend/.env.example backend/.env
-#    DATABASE_URL ya apunta a la base local; ajústala solo si cambiaste el puerto en supabase/config.toml (ver `supabase status`)
+# 3. Levantar los servidores (dos terminales)
+make backend-dev   # API en http://localhost:8000/docs
+make frontend-dev  # PWA en http://localhost:5174
 
-# 4. Backend: dependencias, migraciones y semillas
-cd backend
-uv sync                         # instala dependencias (prod + dev) en .venv
-uv run alembic upgrade head
-uv run python -m scripts.seed   # negocios, usuarios, productos y ventas ficticios
-uv run uvicorn app.main:app --reload   # http://localhost:8000/docs
-
-# 5. Frontend (otra terminal)
-cd frontend
-npm ci
-npm run dev                     # http://localhost:5174
-
-# 6. Tests
-cd backend && uv run pytest     # unitarios, integración y aislamiento entre tenants
-cd frontend && npm test && npx playwright test
+# 4. Tests
+make test-backend-unit  # unitarios del backend (sin base de datos)
+make test-backend       # todos los tests del backend
+make test-frontend      # Vitest
+make test-e2e           # Playwright (descarga Chromium la primera vez)
+make test               # suite completa
 ```
 
-Las credenciales de prueba (dueño y cajero de dos negocios distintos) se documentarán aquí al implementar las semillas ([#23](https://github.com/ninargue/registro-venta-micro/issues/23)).
+#### Atajos con Make
+
+El `Makefile` de la raíz resume los comandos anteriores (en Windows: `choco install make`, o usar Git Bash/WSL). `make help` lista todos los objetivos.
+
+| Comando | Qué hace |
+|---------|----------|
+| `make install` | Hooks de git, dependencias del backend (`uv sync`) y del frontend (`npm ci`). |
+| `make db-up` / `make db-down` | Levanta / detiene Supabase local (requiere Docker). |
+| `make env-supabase` | Inyecta claves de Supabase en `backend/.env` (requiere `make db-up` primero). |
+| `make setup` | Setup completo: `db-up` → `env-supabase` → `migrate` → `seed`. |
+| `make migrate` / `make seed` | Aplica migraciones de Alembic / carga datos ficticios. |
+| `make backend-dev` | API en http://localhost:8000/docs. |
+| `make frontend-dev` | PWA en http://localhost:5174 (el proxy de Vite reenvía `/api` al backend). |
+| `make test-backend-unit` | Unitarios del backend; no necesitan base de datos. |
+| `make test-backend` | Todos los tests del backend (requieren `db-up` y `migrate`). |
+| `make test-frontend` | Vitest. |
+| `make test-e2e` | Playwright; instala Chromium si falta. |
+| `make test` | Backend completo, frontend y E2E. |
+| `make lint` | ruff y mypy (backend); eslint, tsc y prettier (frontend). |
+
+Flujo mínimo para levantar todo: `make install && make setup`, y luego `make backend-dev` y `make frontend-dev` en dos terminales.
+
+> **E2E en Linux:** Playwright puede necesitar librerías del sistema; si el navegador no arranca, ejecuta una vez `npx playwright install --with-deps chromium` (usa `sudo`).
+
+### Credenciales de prueba
+
+Creadas por `make seed`. Contraseña única para todos: **`Seed1234!`**
+
+| Negocio | Rol | Email |
+|---|---|---|
+| Kiosco Don Carlos | owner | `owner_a@example.com` |
+| Kiosco Don Carlos | cajero | `cashier_a@example.com` |
+| Verdulería La Flor | owner | `owner_b@example.com` |
+| Verdulería La Flor | cajero | `cashier_b@example.com` |
+
+> El seed es idempotente: ejecutarlo más de una vez no duplica datos.
 
 ---
 

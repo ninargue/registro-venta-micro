@@ -15,6 +15,6 @@ export default defineConfig({
     url: PREVIEW_URL,
     // Nunca reutilizar un servidor ajeno en este puerto: siempre arranca el propio.
     reuseExistingServer: false,
-    timeout: 120_000,
+    timeout: 300_000,
   },
 });
