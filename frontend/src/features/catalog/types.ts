@@ -7,8 +7,8 @@ export interface ProductCreate {
   code?: string | null;
   name: string;
   sale_price: string | number;
-  cost_price?: string | number | null;
-  stock?: string | number | null;
+  cost_price?: string | number;
+  stock?: string | number;
 }
 
 // ProductUpdate — PATCH /api/v1/catalog/products/{product_id} requestBody

@@ -36,6 +36,14 @@ export function CatalogListContainer() {
     };
   }, []);
 
+  useEffect(() => {
+    return () => {
+      if (debounceRef.current) {
+        clearTimeout(debounceRef.current);
+      }
+    };
+  }, []);
+
   const handleSearchChange = useCallback((value: string) => {
     setSearchText(value);
 
