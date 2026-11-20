@@ -22,6 +22,7 @@ export function ProductEditContainer() {
   const [notFound, setNotFound] = useState(false);
 
   const product = listData?.items.find((p) => p.id === productId);
+  const productNotFoundAfterLoad = !isListLoading && listData !== undefined && !product && !notFound;
 
   const handleSubmit = (data: ProductCreate | ProductUpdate) => {
     if (!productId) return;
@@ -86,9 +87,9 @@ export function ProductEditContainer() {
 
   return (
     <ProductEditPage>
-      {notFound ? (
+      {notFound || productNotFoundAfterLoad ? (
         <div className="flex flex-col gap-4">
-          <ErrorAlert message={errorMessage} />
+          <ErrorAlert message={notFound ? errorMessage : "Producto no encontrado."} />
           <Button variant="secondary" onClick={handleCancel}>
             Volver al catálogo
           </Button>

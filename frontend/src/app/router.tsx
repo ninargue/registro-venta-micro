@@ -60,12 +60,12 @@ export const routes: RouteObject[] = [
     ),
   },
   {
-    path: "*",
-    element: <Navigate to="/" replace />,
-  },
-  {
     path: "/reports/daily",
     element: <DailyReportPage />,
+  },
+  {
+    path: "*",
+    element: <Navigate to="/" replace />,
   },
 ];
 
