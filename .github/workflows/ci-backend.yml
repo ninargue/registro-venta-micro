@@ -32,7 +32,10 @@ defaults:
 
 env:
   # Credenciales locales de Supabase (públicas); puerto de supabase/config.toml.
-  DATABASE_URL: postgresql+asyncpg://postgres:postgres@127.0.0.1:54422/postgres
+  # DATABASE_ADMIN_URL: superusuario postgres para migraciones (alembic upgrade head).
+  # DATABASE_URL: rol app_runtime (NOBYPASSRLS) para que los tests de RLS sean válidos.
+  DATABASE_ADMIN_URL: postgresql+asyncpg://postgres:postgres@127.0.0.1:54422/postgres
+  DATABASE_URL: postgresql+asyncpg://app_runtime:app_runtime_dev_password@127.0.0.1:54422/postgres
 
 jobs:
   audit:
