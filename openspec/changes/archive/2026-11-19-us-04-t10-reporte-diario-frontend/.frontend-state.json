@@ -1,0 +1,138 @@
+{
+  "openapi_hash": "0957ac6011451bdcca17e09a748cb24e293506e1816b81ed0f5dce38cb753bf6",
+  "protected_snapshots": {
+    "backend/migrations": "7db20d7968131b75ceec6a5c33159e6bd4e51b20968d30f2b926a3b4db0f769b",
+    "backend/app": "31f2fd1c696a7425c53a027064ed645b20d9178ac38d07e8fb2af3394fb70b05"
+  },
+  "revision_count": {
+    "architect": 0,
+    "qa": 0,
+    "maquetador": 0,
+    "integrador": 0,
+    "auditor": 0
+  },
+  "diff_history": [
+    {
+      "node": "architect",
+      "attempt": 0,
+      "status": "passed",
+      "snapshot_hash": "b07946db3e7512afac3431cc5e55a7f02cd09ff0142ad7b66dc0022624b23f93",
+      "ts": "2026-11-19T18:58:48.222Z"
+    },
+    {
+      "node": "qa",
+      "attempt": 0,
+      "status": "passed",
+      "snapshot_hash": "4f4a3844186a26874cb59b9e23f37b191ab5ff79be599662bc55d1342ff48ad2",
+      "ts": "2026-11-19T20:18:59.666Z"
+    },
+    {
+      "node": "qa",
+      "status": "tests-snapshot",
+      "tests_hash": "471a6bf140d315897979a7f1954443422cd94d1e2af9cf49be15a874edbd6615",
+      "ts": "2026-11-19T20:18:59.731Z"
+    },
+    {
+      "node": "maquetador",
+      "attempt": 1,
+      "status": "failed",
+      "snapshot_hash": "8837786baaccff1f96d1ec131d2f4cf7a157c176b2df37c6d269518bd7efc60a",
+      "ts": "2026-11-19T20:26:53.264Z"
+    },
+    {
+      "node": "qa",
+      "attempt": 0,
+      "status": "passed",
+      "snapshot_hash": "3561b5cb4c890a46367c59dd7c8ec2696f231702c993177958f6ec975e1cb13b",
+      "ts": "2026-11-19T20:28:12.866Z"
+    },
+    {
+      "node": "qa",
+      "status": "tests-snapshot",
+      "tests_hash": "465c17666eaca0f5c404ef9558cb53c7683a8ff968b85e7a7029fa543ef0b6f2",
+      "ts": "2026-11-19T20:28:12.884Z"
+    },
+    {
+      "node": "maquetador",
+      "attempt": 2,
+      "status": "failed",
+      "snapshot_hash": "e05a42523c75b9856314f4161ebcb034456b8652d6872e13c1b4efb9c6125c75",
+      "ts": "2026-11-19T20:28:35.850Z"
+    },
+    {
+      "node": "maquetador",
+      "attempt": 3,
+      "status": "failed",
+      "snapshot_hash": "e05a42523c75b9856314f4161ebcb034456b8652d6872e13c1b4efb9c6125c75",
+      "ts": "2026-11-19T20:30:21.810Z"
+    },
+    {
+      "node": "maquetador",
+      "attempt": 4,
+      "status": "failed",
+      "snapshot_hash": "e05a42523c75b9856314f4161ebcb034456b8652d6872e13c1b4efb9c6125c75",
+      "ts": "2026-11-19T20:31:13.256Z"
+    },
+    {
+      "node": "maquetador",
+      "attempt": 0,
+      "status": "passed",
+      "snapshot_hash": "e05a42523c75b9856314f4161ebcb034456b8652d6872e13c1b4efb9c6125c75",
+      "ts": "2026-11-19T20:33:56.557Z"
+    },
+    {
+      "node": "integrador",
+      "attempt": 1,
+      "status": "failed",
+      "snapshot_hash": "6dabc5493775b4befd571633f152ca84a8a338fc1bc1ecaf2c001bdb71a25775",
+      "ts": "2026-11-19T20:50:44.071Z"
+    },
+    {
+      "node": "auditor",
+      "attempt": 1,
+      "status": "failed",
+      "snapshot_hash": "6dabc5493775b4befd571633f152ca84a8a338fc1bc1ecaf2c001bdb71a25775",
+      "ts": "2026-11-19T20:51:16.111Z"
+    },
+    {
+      "node": "integrador",
+      "attempt": 0,
+      "status": "passed",
+      "snapshot_hash": "6dabc5493775b4befd571633f152ca84a8a338fc1bc1ecaf2c001bdb71a25775",
+      "ts": "2026-11-19T20:53:47.670Z"
+    },
+    {
+      "node": "auditor",
+      "attempt": 0,
+      "status": "passed",
+      "snapshot_hash": "6dabc5493775b4befd571633f152ca84a8a338fc1bc1ecaf2c001bdb71a25775",
+      "ts": "2026-11-19T20:56:45.792Z"
+    },
+    {
+      "node": "qa",
+      "attempt": 0,
+      "status": "passed",
+      "snapshot_hash": "be26413c26d84f12937d6d506b2da35ae95d94665813bb8fc0ec7cc5b9ec1382",
+      "ts": "2026-11-19T21:02:57.243Z"
+    },
+    {
+      "node": "qa",
+      "status": "tests-snapshot",
+      "tests_hash": "465c17666eaca0f5c404ef9558cb53c7683a8ff968b85e7a7029fa543ef0b6f2",
+      "ts": "2026-11-19T21:02:57.280Z"
+    },
+    {
+      "node": "qa",
+      "attempt": 0,
+      "status": "passed",
+      "snapshot_hash": "d9e806e8be3fe260526661e7814aec3c0c3b6e4aab14e1e071a39e80689e8b12",
+      "ts": "2026-11-19T22:54:24.530Z"
+    },
+    {
+      "node": "qa",
+      "status": "tests-snapshot",
+      "tests_hash": "f1cf701f5688445e7998abec24ab7bbe2732afb27afd119cd0d822625c71a0ad",
+      "ts": "2026-11-19T22:54:24.532Z"
+    }
+  ]
+}

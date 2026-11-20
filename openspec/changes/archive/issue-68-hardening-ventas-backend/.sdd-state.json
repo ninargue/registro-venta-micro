@@ -1,0 +1,45 @@
+{
+  "schema_version": 1,
+  "layer": "backend",
+  "max_repeat": 2,
+  "attempt": 0,
+  "errors": [],
+  "backend_snapshots": {
+    "tests": {
+      "captured_at": "2026-11-19T18:33:00.846Z",
+      "file_count": 12,
+      "digest": "7dfbb2ea7e9138cc7d3e22df744e273c36953e85f9fb3dac37fa23bfd6713658",
+      "files": {
+        "backend/tests/conftest.py": "840e646a51ccf0c1e2faaac0b3368a784570bae9190616e6003720a66095fcfd",
+        "backend/tests/integration/test_auth_onboarding.py": "dd03f1a7e34b86633696792f5322b940cc73d575d75f31d07cb96007cba847bb",
+        "backend/tests/integration/test_catalog_products.py": "797c8653d6907936a220010446d1dae05dabfd3d007333c7f896b39319c19884",
+        "backend/tests/integration/test_db_businesses.py": "5269539b93a33bfaa991ff5d2f01d522c97dd3c609beca2a98462f6e0a9b250d",
+        "backend/tests/integration/test_db_products.py": "f461af385a79188db4e49fd3dd951b5892cc588b644c04bd10a8ad182530dbb2",
+        "backend/tests/integration/test_db_sales.py": "33997772cbabd41b4a74541f37f8b3cad646ccb84aec97695b21e91e7d008cb8",
+        "backend/tests/integration/test_sales_api.py": "c4a85e95bbdf6d1eba59401942bdb680a45fa0f8d9f52962ec24c0585fbc21f6",
+        "backend/tests/unit/test_auth_schemas.py": "f1410ff384f81fd0929981dad351fe1bf84f044790aefd8d655882331fac5bf5",
+        "backend/tests/unit/test_catalog_schemas.py": "1b7db7b51cb2ef7452b6ed6448d5e66c0ca42a0c8c6a730ff2128b4cc234e2da",
+        "backend/tests/unit/test_export_openapi.py": "6924f885dea6ae215b97dfe63a78803da7981fcab47a8888e9b14abc8fa67b59",
+        "backend/tests/unit/test_health.py": "c4d4e5c25bd5dbb99976e8a93f02971712e1afb6ed42cc8da876b0e220935944",
+        "backend/tests/unit/test_sales_schemas.py": "ecd89f499f574f10c3727f2e4f09936d59597a5d5ef6fae4dc169152c6160669"
+      }
+    },
+    "db": {
+      "db_mode": "with-db",
+      "captured_at": "2026-11-19T18:05:41.209Z",
+      "file_count": 9,
+      "digest": "7522ef6b5e48040d8f0fc989511680fbf7d15968f21495c9cad4a91eb27e142d",
+      "files": {
+        "backend/migrations/README": "21256d00ebeabca93fe5384ce62a0913e94c92f7fd21b92715415553fbcf99ae",
+        "backend/migrations/env.py": "9ce94be1f72dfdc7c952edcf358c6b6ce6e32290dc7329930838bf57d707abd4",
+        "backend/migrations/script.py.mako": "d38920781b4d31ae1c0a71bc09f41c2ade8feab9e5a087e3f30cb4bbf0c1c9d3",
+        "backend/migrations/versions/20261102_0001-ba617f3a8caa_baseline.py": "4e4e3fd473a07cad2f0b419dd9ecae1483d4a00bd3358346f3a40a7a98114e1b",
+        "backend/migrations/versions/20261116_0002-c843e91d84f1_create_businesses_and_rls.py": "f5da28dba707eeec65b5af914b4e73173c3d617b635c96b6df1a05c618e0bd63",
+        "backend/migrations/versions/20261117_0003-e4a7c2b91f03_fix_businesses_rls_and_unique_user.py": "189ae40e9b90e789d23b791ef56b792d03c6d48a5d13c1a630e78744308711d6",
+        "backend/migrations/versions/20261118_0004-f8b2c1a94d07_harden_rls_and_runtime_role.py": "198855a8d8e0759559748cba27ab5ff0b41bead275855730b976c9c386e089c5",
+        "backend/migrations/versions/20261118_0005-a3f9d2e1b4c8_create_products_table.py": "7d16284b4fa800ee515fc215dca0c729983629de949a216940b35e2e50099916",
+        "backend/migrations/versions/20261119_0006-d4e7f1a2b9c3_create_sales_items_payments_tables.py": "f1fbb5923562f2192f7865b22dc244ff7cf8c00940557ca713d59d47cf6eb484"
+      }
+    }
+  }
+}
