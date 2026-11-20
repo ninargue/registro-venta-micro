@@ -23,6 +23,9 @@ class Settings(BaseSettings):
     # Supabase Auth (prohibido usar service_role en flujos de usuario).
     supabase_url: str | None = None
     supabase_anon_key: str | None = None
+    # Solo para scripts de seed/admin (nunca en flujos de usuario).
+    supabase_service_role_key: str | None = None
+    database_admin_url: str | None = None
 
     # Sesión JWT y cookies HttpOnly.
     jwt_secret_key: str | None = None

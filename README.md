@@ -147,11 +147,45 @@ npm ci
 npm run dev                     # http://localhost:5174
 
 # 6. Tests
-cd backend && uv run pytest     # unitarios, integración y aislamiento entre tenants
-cd frontend && npm test && npx playwright test
+cd backend && uv run pytest     # unitarios, integración y aislamiento entre tenants (requiere Supabase local y migraciones)
+cd frontend && npm test         # Vitest
+cd frontend && npm run test:e2e # Playwright; descarga Chromium la primera vez (hook pretest:e2e)
 ```
 
-Las credenciales de prueba (dueño y cajero de dos negocios distintos) se documentarán aquí al implementar las semillas ([#23](https://github.com/ninargue/registro-venta-micro/issues/23)).
+#### Atajos con Make
+
+El `Makefile` de la raíz resume los comandos anteriores (en Windows: `choco install make`, o usar Git Bash/WSL). `make help` lista todos los objetivos.
+
+| Comando | Qué hace |
+|---------|----------|
+| `make install` | Hooks de git, dependencias del backend (`uv sync`) y del frontend (`npm ci`). |
+| `make db-up` / `make db-down` | Levanta / detiene Supabase local (requiere Docker). |
+| `make migrate` / `make seed` | Aplica migraciones de Alembic / carga datos ficticios. |
+| `make backend-dev` | API en http://localhost:8000/docs. |
+| `make frontend-dev` | PWA en http://localhost:5174 (el proxy de Vite reenvía `/api` al backend). |
+| `make test-backend-unit` | Unitarios del backend; no necesitan base de datos. |
+| `make test-backend` | Todos los tests del backend (requieren `db-up` y `migrate`). |
+| `make test-frontend` | Vitest. |
+| `make test-e2e` | Playwright; instala Chromium si falta. |
+| `make test` | Backend completo, frontend y E2E. |
+| `make lint` | ruff y mypy (backend); eslint, tsc y prettier (frontend). |
+
+Flujo mínimo para levantar todo: `make install && make db-up && make migrate && make seed`, y luego `make backend-dev` y `make frontend-dev` en dos terminales.
+
+> **E2E en Linux:** Playwright puede necesitar librerías del sistema; si el navegador no arranca, ejecuta una vez `npx playwright install --with-deps chromium` (usa `sudo`).
+
+### Credenciales de prueba
+
+Creadas por `make seed`. Contraseña única para todos: **`Seed1234!`**
+
+| Negocio | Rol | Email |
+|---|---|---|
+| Kiosco Don Carlos | owner | `owner_a@example.com` |
+| Kiosco Don Carlos | cajero | `cashier_a@example.com` |
+| Verdulería La Flor | owner | `owner_b@example.com` |
+| Verdulería La Flor | cajero | `cashier_b@example.com` |
+
+> El seed es idempotente: ejecutarlo más de una vez no duplica datos.
 
 ---
 
