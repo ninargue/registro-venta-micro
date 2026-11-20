@@ -21,11 +21,7 @@ import { Providers } from "@/app/providers";
 import { CatalogListContainer } from "@/features/catalog/containers/CatalogListContainer";
 import { ProductCreateContainer } from "@/features/catalog/containers/ProductCreateContainer";
 import { ProductEditContainer } from "@/features/catalog/containers/ProductEditContainer";
-import {
-  DEFAULT_PRODUCT_1,
-  DEFAULT_TEST_BUSINESS,
-  DEFAULT_TEST_USER,
-} from "@/test/mocks/handlers";
+import { DEFAULT_PRODUCT_1, DEFAULT_TEST_BUSINESS, DEFAULT_TEST_USER } from "@/test/mocks/handlers";
 import { server } from "@/test/mocks/server";
 
 // ── Routes for catalog feature (mirrors router.tsx additions from T-19) ───────
