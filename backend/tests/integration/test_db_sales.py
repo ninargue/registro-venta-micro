@@ -231,7 +231,20 @@ async def test_insert_sale_rejects_nulls_on_mandatory_attributes(
                     {"b_id": business_id, "c_id": client_id},
                 ),
             ]
-            for sql, params in null_cases:
+            # Case 0: business_id=NULL triggers RLS (42501) before NOT NULL (23502)
+            sql0, params0 = null_cases[0]
+            with pytest.raises(DBAPIError) as exc_case0:
+                async with db_session.begin_nested():
+                    await db_session.execute(text(sql0), params0)
+            orig0 = exc_case0.value.orig
+            sqlstate0 = getattr(orig0, "sqlstate", None) or getattr(
+                getattr(orig0, "__cause__", None), "sqlstate", None
+            )
+            assert sqlstate0 in ("42501", "23502"), (
+                f"Case 0 expected 42501 or 23502, got {sqlstate0!r}"
+            )
+
+            for sql, params in null_cases[1:]:
                 with pytest.raises(IntegrityError) as exc_info:
                     async with db_session.begin_nested():
                         await db_session.execute(text(sql), params)
@@ -356,13 +369,21 @@ async def test_sales_same_client_id_allowed_across_distinct_businesses(
             )
             assert s1 != s2
 
-            count = (
+            await db_session.execute(text(f"SET LOCAL app.current_business_id = '{b1}';"))
+            count_b1 = (
                 await db_session.execute(
                     text("SELECT count(*) FROM sales WHERE client_id = :c_id"),
                     {"c_id": shared_client_id},
                 )
             ).scalar_one()
-            assert count == 2
+            await db_session.execute(text(f"SET LOCAL app.current_business_id = '{b2}';"))
+            count_b2 = (
+                await db_session.execute(
+                    text("SELECT count(*) FROM sales WHERE client_id = :c_id"),
+                    {"c_id": shared_client_id},
+                )
+            ).scalar_one()
+            assert count_b1 + count_b2 == 2
         finally:
             await tx.rollback()
 
@@ -656,7 +677,20 @@ async def test_sale_items_rejects_nulls_and_invalid_numeric_bounds(
                     {"b_id": business_id, "s_id": sid, "p_id": pid},
                 ),
             ]
-            for sql, params in null_cases:
+            # Case 0: business_id=NULL triggers RLS (42501) before NOT NULL (23502)
+            sql0, params0 = null_cases[0]
+            with pytest.raises(DBAPIError) as exc_si_case0:
+                async with db_session.begin_nested():
+                    await db_session.execute(text(sql0), params0)
+            orig0 = exc_si_case0.value.orig
+            sqlstate0 = getattr(orig0, "sqlstate", None) or getattr(
+                getattr(orig0, "__cause__", None), "sqlstate", None
+            )
+            assert sqlstate0 in ("42501", "23502"), (
+                f"Case 0 expected 42501 or 23502, got {sqlstate0!r}"
+            )
+
+            for sql, params in null_cases[1:]:
                 with pytest.raises(IntegrityError) as exc_null:
                     async with db_session.begin_nested():
                         await db_session.execute(text(sql), params)
@@ -929,7 +963,20 @@ async def test_payments_rejects_invalid_method_non_positive_amount_and_nulls(
                     {"b_id": business_id, "s_id": sid},
                 ),
             ]
-            for sql, params in null_cases:
+            # Case 0: business_id=NULL triggers RLS (42501) before NOT NULL (23502)
+            sql0, params0 = null_cases[0]
+            with pytest.raises(DBAPIError) as exc_pay_case0:
+                async with db_session.begin_nested():
+                    await db_session.execute(text(sql0), params0)
+            orig0 = exc_pay_case0.value.orig
+            sqlstate0 = getattr(orig0, "sqlstate", None) or getattr(
+                getattr(orig0, "__cause__", None), "sqlstate", None
+            )
+            assert sqlstate0 in ("42501", "23502"), (
+                f"Case 0 expected 42501 or 23502, got {sqlstate0!r}"
+            )
+
+            for sql, params in null_cases[1:]:
                 with pytest.raises(IntegrityError) as exc_null:
                     async with db_session.begin_nested():
                         await db_session.execute(text(sql), params)
@@ -1166,6 +1213,7 @@ async def test_rls_cross_tenant_select_update_delete_blocked_across_sales_tables
             assert (await db_session.execute(text("DELETE FROM sales;"))).rowcount == 1
 
             await db_session.execute(text("RESET ROLE;"))
+            await db_session.execute(text(f"SET LOCAL app.current_business_id = '{b2}';"))
             assert (
                 await db_session.execute(
                     text("SELECT total_amount FROM sales WHERE id = :s2;"), {"s2": s2}

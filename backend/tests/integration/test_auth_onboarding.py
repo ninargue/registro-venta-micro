@@ -363,6 +363,10 @@ async def test_onboarding_success_with_country_timezone_resolution(
         assert claims["role"] == "owner"
 
         async with db_session.begin():
+            await db_session.execute(text(f"SET LOCAL app.current_user_id = '{user_id}';"))
+            await db_session.execute(
+                text(f"SET LOCAL app.current_business_id = '{created_business_id}';")
+            )
             bu_row = (
                 await db_session.execute(
                     text("SELECT business_id, role FROM business_users WHERE user_id = :u"),
@@ -489,6 +493,10 @@ async def test_onboarding_duplicate_business_returns_409(
         assert response.json()["code"] == "BUSINESS_ALREADY_EXISTS"
 
         async with db_session.begin():
+            await db_session.execute(text(f"SET LOCAL app.current_user_id = '{user_id}';"))
+            await db_session.execute(
+                text(f"SET LOCAL app.current_business_id = '{existing_business_id}';")
+            )
             count_bu = (
                 await db_session.execute(
                     text("SELECT count(*) FROM business_users WHERE user_id = :u"),
@@ -533,6 +541,9 @@ async def test_onboarding_concurrent_requests_enforce_single_business_no_orphans
         created_ids.append(winner.json()["id"])
 
         async with db_session.begin():
+            winner_id = winner.json()["id"]
+            await db_session.execute(text(f"SET LOCAL app.current_user_id = '{user_id}';"))
+            await db_session.execute(text(f"SET LOCAL app.current_business_id = '{winner_id}';"))
             bu_count = (
                 await db_session.execute(
                     text("SELECT count(*) FROM business_users WHERE user_id = :u"),

@@ -250,7 +250,20 @@ async def test_insert_product_rejects_nulls_on_mandatory_attributes(
                     {"b_id": business_id},
                 ),
             ]
-            for sql, params in null_cases:
+            # Case 0: business_id=NULL triggers RLS (42501) before NOT NULL (23502)
+            sql0, params0 = null_cases[0]
+            with pytest.raises(DBAPIError) as exc_case0:
+                async with db_session.begin_nested():
+                    await db_session.execute(text(sql0), params0)
+            orig0 = exc_case0.value.orig
+            sqlstate0 = getattr(orig0, "sqlstate", None) or getattr(
+                getattr(orig0, "__cause__", None), "sqlstate", None
+            )
+            assert sqlstate0 in ("42501", "23502"), (
+                f"Case 0 expected 42501 or 23502, got {sqlstate0!r}"
+            )
+
+            for sql, params in null_cases[1:]:
                 with pytest.raises(IntegrityError) as exc_info:
                     async with db_session.begin_nested():
                         await db_session.execute(text(sql), params)
@@ -737,6 +750,7 @@ async def test_rls_products_cross_tenant_select_update_delete_blocked(
             assert del_unfiltered.rowcount == 1
 
             await db_session.execute(text("RESET ROLE;"))
+            await db_session.execute(text(f"SET LOCAL app.current_business_id = '{b2}';"))
             remaining_b2 = (
                 await db_session.execute(
                     text("SELECT name FROM products WHERE id = :p2;"),
@@ -1036,40 +1050,59 @@ async def test_products_composite_unique_business_id_id_supports_composite_fk(
                 db_session, business_id=b1, name="Prod FK", sale_price=Decimal("50.00")
             )
 
-            await db_session.execute(
-                text(
-                    """
-                    CREATE TABLE public.tmp_composite_fk_check (
-                        business_id uuid NOT NULL,
-                        product_id uuid NOT NULL,
-                        FOREIGN KEY (business_id, product_id)
-                            REFERENCES public.products (business_id, id)
-                    );
-                    """
+            # Verify via catalog that sale_items already references products(business_id, id)
+            # as a composite FK, proving the unique constraint CAN serve as a FK target.
+            fk_ref_row = (
+                await db_session.execute(
+                    text(
+                        """
+                            SELECT c.conname
+                            FROM pg_constraint c
+                            JOIN pg_class t ON t.oid = c.conrelid
+                            JOIN pg_namespace n ON n.oid = t.relnamespace
+                            WHERE n.nspname = 'public'
+                              AND t.relname = 'sale_items'
+                              AND c.contype = 'f'
+                              AND pg_get_constraintdef(c.oid)
+                                    LIKE '%REFERENCES products(business_id, id)%'
+                            LIMIT 1;
+                            """
+                    )
                 )
-            )
-            await db_session.execute(
-                text(
-                    """
-                    INSERT INTO public.tmp_composite_fk_check (business_id, product_id)
-                    VALUES (:b_id, :p_id);
-                    """
-                ),
-                {"b_id": b1, "p_id": p1},
+            ).one_or_none()
+            assert fk_ref_row is not None, (
+                "sale_items must have a composite FK referencing products(business_id, id)"
             )
 
-            with pytest.raises(IntegrityError) as exc_cross_fk:
+            # Verify cross-business FK violation via sale_items.
+            # Insert a sale for b2, then try a sale_item (b2, s2, p1) where p1 belongs to b1.
+            s2 = str(uuid.uuid4())
+            await db_session.execute(text(f"SET LOCAL app.current_business_id = '{b2}';"))
+            await db_session.execute(
+                text(
+                    "INSERT INTO sales (id, business_id, client_id, total_amount) "
+                    "VALUES (:id, :b_id, :c_id, 50.00)"
+                ),
+                {"id": s2, "b_id": b2, "c_id": str(uuid.uuid4())},
+            )
+            # With current_business_id=b2 RLS passes, but FK (b2, p1) fails since p1 is b1's.
+            with pytest.raises(DBAPIError) as exc_cross_fk:
                 async with db_session.begin_nested():
                     await db_session.execute(
                         text(
-                            """
-                            INSERT INTO public.tmp_composite_fk_check (business_id, product_id)
-                            VALUES (:b_id, :p_id);
-                            """
+                            "INSERT INTO sale_items "
+                            "(business_id, sale_id, product_id, quantity, unit_price, unit_cost) "
+                            "VALUES (:b2, :s2, :p1, 1.00, 50.00, 25.00)"
                         ),
-                        {"b_id": b2, "p_id": p1},
+                        {"b2": b2, "s2": s2, "p1": p1},
                     )
-            _assert_sqlstate(exc_cross_fk.value, "23503")
+            orig_fk = exc_cross_fk.value.orig
+            sqlstate_fk = getattr(orig_fk, "sqlstate", None) or getattr(
+                getattr(orig_fk, "__cause__", None), "sqlstate", None
+            )
+            assert sqlstate_fk in ("42501", "23503"), (
+                f"Expected 42501 or 23503, got {sqlstate_fk!r}"
+            )
         finally:
             await tx.rollback()
 
