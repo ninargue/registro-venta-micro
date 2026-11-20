@@ -3,7 +3,6 @@ import importlib.util
 import time
 import uuid
 from collections.abc import Callable, Iterator
-
 from contextlib import contextmanager
 from typing import Any
 
@@ -11,14 +10,14 @@ import httpx
 import jwt
 import pytest
 from fastapi import Depends, FastAPI
-
-pytestmark = pytest.mark.auth
 from sqlalchemy import event, text
 from sqlalchemy.engine import Engine
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings
 from app.main import app
+
+pytestmark = pytest.mark.auth
 
 TEST_SUPABASE_URL = "https://supabase.test.local"
 TEST_SUPABASE_ANON_KEY = "test-supabase-anon-key"

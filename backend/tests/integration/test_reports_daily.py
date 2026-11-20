@@ -13,12 +13,12 @@ import jwt
 import pytest
 from sqlalchemy import event, text
 from sqlalchemy.engine import Engine
-
-pytestmark = pytest.mark.reportes
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings
 from app.main import app
+
+pytestmark = pytest.mark.reportes
 
 TEST_JWT_SECRET = "test-jwt-secret-key-for-reports-tests-32b"
 REPORTS_DAILY_URL = "/api/v1/reports/daily"

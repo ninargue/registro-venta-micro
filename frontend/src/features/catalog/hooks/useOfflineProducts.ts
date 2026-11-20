@@ -13,14 +13,18 @@ export function useOfflineProducts(): ProductResponse[] | undefined {
 
   useEffect(() => {
     const subscription = liveQuery(() => db.products.toArray()).subscribe({
-      next: (items) => setProducts(items as ProductResponse[]),
+      next: (items) => {
+        setProducts(items);
+      },
       error: () => {
         // IndexedDB not available (e.g., in JSDOM tests) — return empty array
         setProducts([]);
       },
     });
 
-    return () => subscription.unsubscribe();
+    return () => {
+      subscription.unsubscribe();
+    };
   }, []);
 
   return products;

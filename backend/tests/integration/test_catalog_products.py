@@ -10,13 +10,13 @@ import jwt
 import pytest
 from sqlalchemy import event, text
 from sqlalchemy.engine import Engine
-
-pytestmark = pytest.mark.catalogo
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings
 from app.core.db import get_tenant_db
 from app.main import app
+
+pytestmark = pytest.mark.catalogo
 
 TEST_JWT_SECRET = "test-jwt-secret-key-for-catalog-tests-32b"
 CATALOG_PRODUCTS_URL = "/api/v1/catalog/products"

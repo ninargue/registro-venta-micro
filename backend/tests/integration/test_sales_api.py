@@ -12,13 +12,13 @@ import jwt
 import pytest
 from sqlalchemy import event, text
 from sqlalchemy.engine import Engine
-
-pytestmark = pytest.mark.ventas
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 
 from app.core.config import get_settings
 from app.main import app
 from app.scripts.export_openapi import check_openapi
+
+pytestmark = pytest.mark.ventas
 
 TEST_JWT_SECRET = "test-jwt-secret-key-for-sales-tests-32b"
 SALES_URL = "/api/v1/sales"

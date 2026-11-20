@@ -4,9 +4,9 @@ from decimal import Decimal
 import pytest
 from sqlalchemy import text
 from sqlalchemy.exc import DBAPIError, IntegrityError
+from sqlalchemy.ext.asyncio import AsyncSession
 
 pytestmark = pytest.mark.catalogo
-from sqlalchemy.ext.asyncio import AsyncSession
 
 
 def _assert_sqlstate(exc: DBAPIError, expected_sqlstate: str) -> None:
